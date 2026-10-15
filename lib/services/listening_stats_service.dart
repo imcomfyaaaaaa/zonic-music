@@ -364,6 +364,10 @@ class ListeningStatsService {
       await addOrUpdateData('user', storageKey, cleared);
     }
   }
+  void reloadFromStorage() {
+    finishListeningSession(countCurrentTick: false, flushStats: false);
+    _stats = null; _dirty = false; _listeningTimeRemainder = Duration.zero;
+  }
 
   /// Writes pending stats to disk if anything changed since the last write.
   /// Called at playback checkpoints and when the app is backgrounded/closed.

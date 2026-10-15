@@ -1,0 +1,6 @@
+{
+  "appId": "app.musify.web",
+  "appName": "Grove",
+  "webDir": "dist",
+  "android": { "backgroundColor": "#101414" }
+}

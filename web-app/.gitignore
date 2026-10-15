@@ -1,0 +1,12 @@
+node_modules/
+dist/
+test-results/
+playwright-report/
+android/.gradle/
+android/local.properties
+android/app/build/
+android/build/
+engine/.dart_tool/
+engine/build/
+release/
+.data/

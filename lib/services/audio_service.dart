@@ -97,6 +97,7 @@ class MusifyAudioHandler extends BaseAudioHandler implements AndroidAutoHost {
   bool _completionEventPending = false;
   bool _completionHandlerLoadStarted = false;
   String? _lastError;
+  String? get lastError => _lastError;
   int _consecutiveErrors = 0;
 
   // Timers and sleep-timer state.
@@ -165,6 +166,13 @@ class MusifyAudioHandler extends BaseAudioHandler implements AndroidAutoHost {
   Stream<PlaybackState> get playbackStateStream => _playbackStateStream;
   Stream<List<Map>> get queueAsMapStream => _queueMapStream.stream;
   int get currentQueueIndex => _currentQueueIndex;
+  Future<void> clearGroveQueue() async {
+    await stop();
+    _queueList.clear(); _originalQueueList.clear(); _originalQueueEntriesById.clear(); _historyList.clear();
+    _currentQueueIndex = -1; _currentLoadingIndex = -1; _currentLoadingTransitionId = -1;
+    _queueMapStream.add(const []); queue.add(const []); mediaItem.add(null);
+    _updatePlaybackState(force: true);
+  }
   bool get _hasCurrentQueueIndex =>
       _currentQueueIndex >= 0 && _currentQueueIndex < _queueList.length;
 
@@ -1964,6 +1972,13 @@ class MusifyAudioHandler extends BaseAudioHandler implements AndroidAutoHost {
   Future<String?> _getPlaybackUrl(Map song, bool isOffline) async {
     if (isOffline) {
       return _getOfflineSongUrl(song);
+    }
+
+    // Grove's local files and radio/direct audio share the native queue.
+    final directUrl = song['directUrl'];
+    if (directUrl is String) {
+      final uri = Uri.tryParse(directUrl);
+      if (uri != null && (uri.scheme == 'https' || uri.scheme == 'http')) return directUrl;
     }
 
     return fetchSongStreamUrl(song['ytid'], song['isLive'] ?? false);

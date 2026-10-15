@@ -276,7 +276,7 @@ void main() async {
   runApp(const Musify());
 }
 
-Future<void> initialisation() async {
+Future<void> initialisation({bool grove = false}) async {
   try {
     await Hive.initFlutter();
 
@@ -289,9 +289,9 @@ Future<void> initialisation() async {
 
     audioHandler = await AudioService.init(
       builder: MusifyAudioHandler.new,
-      config: const AudioServiceConfig(
-        androidNotificationChannelId: 'com.gokadzev.musify',
-        androidNotificationChannelName: 'Musify',
+      config: AudioServiceConfig(
+        androidNotificationChannelId: grove ? 'app.grove.music.playback' : 'com.gokadzev.musify',
+        androidNotificationChannelName: grove ? 'Grove' : 'Musify',
         androidNotificationIcon: 'drawable/ic_launcher_foreground',
         androidShowNotificationBadge: true,
         androidStopForegroundOnPause: false,
@@ -314,7 +314,7 @@ Future<void> initialisation() async {
 
     try {
       // Listen to incoming links while app is running
-      appLinksSubscription = appLinks.uriLinkStream.listen(
+      if (!grove) appLinksSubscription = appLinks.uriLinkStream.listen(
         handleIncomingLink,
         onError: (err) {
           logger.log('URI link error:', error: err);
@@ -329,6 +329,7 @@ Future<void> initialisation() async {
     }
   } catch (e, stackTrace) {
     logger.log('Initialization Error', error: e, stackTrace: stackTrace);
+    if (grove) rethrow;
   }
 
   applicationDirPath = (await getApplicationDocumentsDirectory()).path;

@@ -48,7 +48,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.gokadzev.musify"
+        applicationId = "app.grove.music"
         minSdk = 24
         targetSdk = 36
         versionCode = flutter.versionCode

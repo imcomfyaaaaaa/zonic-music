@@ -1,0 +1,761 @@
+/* ==========================================================================
+   Buttons & UI Icons — Crystalline Theme
+   Shared control geometry, icon styling, and context-specific refinements.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. UI Icon Base
+   -------------------------------------------------------------------------- */
+.ui-icon {
+  display: block;
+  width: 20px;
+  height: 20px;
+  min-width: 20px;
+  flex: none;
+  pointer-events: none;
+  vertical-align: middle;
+}
+
+/* --------------------------------------------------------------------------
+   2. Base Button Transitions & Interactive States
+   -------------------------------------------------------------------------- */
+button {
+  transition: background-color 0.18s ease,
+              border-color 0.18s ease,
+              color 0.18s ease,
+              box-shadow 0.18s ease,
+              transform 0.12s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:disabled {
+  transform: none;
+  box-shadow: none;
+  opacity: 0.35;
+}
+
+button:focus-visible {
+  outline: 3px solid #ddd5ff;
+  outline-offset: 3px;
+  box-shadow: 0 0 0 6px rgba(124, 106, 255, 0.4);
+}
+
+/* --------------------------------------------------------------------------
+   3. Button Variants: Label Buttons & Icon Buttons
+   -------------------------------------------------------------------------- */
+button.label-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  line-height: 1.35;
+  vertical-align: middle;
+  font-weight: 600;
+}
+
+button.icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  border-radius: 14px;
+  flex: none;
+  color: var(--muted);
+  border: 1px solid transparent;
+}
+
+button.icon-button:hover {
+  background: var(--glass-hover);
+  color: var(--text);
+  border-color: var(--glass-border);
+}
+
+button.icon-button:active,
+button.label-button:active {
+  transform: translateY(1px);
+}
+
+/* --------------------------------------------------------------------------
+   4. Pressed States (aria-pressed) & Specific Icons
+   -------------------------------------------------------------------------- */
+button.icon-button[aria-pressed=true] {
+  color: var(--coral);
+  background: rgba(255, 107, 138, 0.08);
+  border-color: rgba(255, 107, 138, 0.15);
+}
+
+button[aria-pressed=true] > .ui-icon[data-icon=heart] {
+  fill: currentColor;
+  stroke-width: 1.5;
+}
+
+button .ui-icon[data-icon=play] {
+  fill: currentColor;
+  stroke-width: 1.3;
+  width: 21px;
+  height: 21px;
+  transform: translateX(1px);
+}
+
+button .ui-icon[data-icon=pause] {
+  stroke-width: 3.2;
+}
+
+button .ui-icon[data-icon=more] {
+  stroke-width: 2.4;
+  width: 20px;
+  height: 20px;
+}
+
+/* --------------------------------------------------------------------------
+   5. Sidebar Navigation & Playlist Navigation
+   -------------------------------------------------------------------------- */
+.sidebar nav button.label-button,
+.sidebar-bottom button.label-button,
+#playlist-nav button.label-button {
+  display: flex;
+  justify-content: flex-start;
+  gap: 12px;
+  padding: 11px 14px;
+  min-height: 46px;
+  border-radius: 14px;
+  line-height: 1.3;
+}
+
+.sidebar nav .ui-icon {
+  width: 20px;
+  height: 20px;
+  opacity: 0.75;
+}
+
+.sidebar nav button.active .ui-icon {
+  opacity: 1;
+  color: #cec5ff;
+}
+
+.sidebar nav button.active {
+  background: linear-gradient(110deg, rgba(124, 106, 255, 0.18), rgba(255, 255, 255, 0.04));
+  box-shadow: inset 3px 0 0 var(--violet), inset 0 1px 0 var(--hi);
+  color: #fff;
+}
+
+#playlist-nav button.label-button {
+  font-weight: 400;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  justify-content: flex-start;
+}
+
+#playlist-nav .ui-icon {
+  width: 18px;
+  height: 18px;
+  min-width: 18px;
+  opacity: 0.55;
+}
+
+#new-playlist.icon-button {
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  min-height: 32px;
+  border-radius: 10px;
+  color: var(--muted);
+}
+
+/* --------------------------------------------------------------------------
+   6. Header, Search, Brand, & TV Mode Controls
+   -------------------------------------------------------------------------- */
+.brand-icon .ui-icon {
+  width: 19px;
+  height: 19px;
+}
+
+.brand-icon > .ui-icon {
+  opacity: 1;
+}
+
+.search > span {
+  display: flex;
+  align-items: center;
+}
+
+.search .ui-icon {
+  width: 18px;
+  height: 18px;
+  min-width: 18px;
+  color: #b0a8d0;
+}
+
+header > button.icon-button {
+  margin-left: 0;
+  width: 44px;
+  height: 44px;
+  background: rgba(255, 255, 255, 0.04);
+  border-color: var(--glass-border);
+  border-radius: 50%;
+}
+
+#tv-mode.label-button {
+  margin-left: auto;
+  white-space: nowrap;
+  font-size: 12px;
+  padding: 0 14px;
+  min-height: 40px;
+  border: 1px solid var(--glass-border);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+#tv-mode[aria-pressed=true] {
+  color: var(--coral);
+  border-color: rgba(255, 107, 138, 0.4);
+  background: rgba(255, 107, 138, 0.08);
+}
+
+/* --------------------------------------------------------------------------
+   7. Player Transport Controls & Extras (Volume Area)
+   -------------------------------------------------------------------------- */
+.transport-buttons {
+  gap: 8px;
+}
+
+.transport-buttons button.icon-button {
+  width: 42px;
+  height: 44px;
+  min-width: 42px;
+  min-height: 44px;
+  border-radius: 50%;
+  padding: 0;
+}
+
+.transport-buttons button.icon-button .ui-icon {
+  width: 21px;
+  height: 21px;
+  min-width: 21px;
+}
+
+.transport-buttons .play-main.icon-button {
+  width: 48px;
+  height: 48px;
+  min-width: 48px;
+  min-height: 48px;
+  color: #fff;
+  background: linear-gradient(145deg, #9884ff, #7c6aff);
+  border: 1px solid rgba(198, 186, 255, 0.5);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 6px 24px rgba(124, 106, 255, 0.45);
+}
+
+.transport-buttons .play-main.icon-button:hover {
+  background: linear-gradient(145deg, #aa9cff, #8878ff);
+  border-color: #e0d8ff;
+}
+
+#shuffle[aria-pressed=true],
+#repeat[aria-pressed=true] {
+  position: relative;
+  background: rgba(255, 107, 138, 0.06);
+  border-color: transparent;
+}
+
+#shuffle[aria-pressed=true]::after,
+#repeat[aria-pressed=true]::after {
+  content: '';
+  position: absolute;
+  bottom: 3px;
+  left: calc(50% - 2px);
+  width: 4px;
+  height: 4px;
+  background: var(--coral);
+  border-radius: 50%;
+}
+
+.now button.icon-button {
+  width: 36px;
+  min-width: 36px;
+  height: 44px;
+  padding: 0;
+  border-radius: 12px;
+  margin: 0;
+}
+
+.now button.icon-button .ui-icon {
+  width: 20px;
+  height: 20px;
+}
+
+.now #now-like[aria-pressed=true] {
+  background: none;
+  border-color: transparent;
+}
+
+.extras {
+  gap: 4px;
+}
+
+.extras button.icon-button {
+  width: 36px;
+  min-width: 36px;
+  height: 40px;
+  min-height: 40px;
+  border-radius: 12px;
+}
+
+.extras .ui-icon {
+  width: 19px;
+  height: 19px;
+}
+
+.extras input {
+  margin-left: 8px;
+}
+
+/* --------------------------------------------------------------------------
+   8. Track Rows, Lists, & Queue Area
+   -------------------------------------------------------------------------- */
+.track > button.icon-button {
+  width: 36px;
+  min-width: 36px;
+  min-height: 40px;
+  height: 40px;
+  border-radius: 12px;
+}
+
+.track > button.icon-button[data-like] {
+  background: none;
+  border-color: transparent;
+}
+
+.queue-actions button.icon-button {
+  width: 34px;
+  min-width: 34px;
+  height: 40px;
+  min-height: 40px;
+}
+
+.queue-actions .ui-icon {
+  width: 17px;
+  height: 17px;
+}
+
+.queue-empty > span {
+  display: grid;
+  place-items: center;
+}
+
+.queue-empty > span .ui-icon {
+  width: 42px;
+  height: 42px;
+}
+
+.queue-empty button.label-button {
+  padding: 0 18px;
+  font-size: 12px;
+  gap: 8px;
+}
+
+.queue-rail .section-heading button.icon-button {
+  width: 36px;
+  min-width: 36px;
+  height: 36px;
+  min-height: 36px;
+}
+
+.queue-rail .section-heading .ui-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.cover > .ui-icon {
+  width: 38%;
+  height: 38%;
+  min-width: 0;
+  opacity: 0.7;
+}
+
+.hero-art > .ui-icon {
+  width: 40%;
+  height: 40%;
+}
+
+/* --------------------------------------------------------------------------
+   9. Content Area, Headings, Primary & Secondary Buttons
+   -------------------------------------------------------------------------- */
+#content button.label-button:not(.primary):not(.secondary) {
+  padding: 10px 15px;
+  border: 1px solid var(--glass-border);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.04);
+  font-size: 13px;
+  min-height: 42px;
+}
+
+#content .section-heading button.label-button {
+  background: none;
+  border-color: transparent;
+  padding: 7px 8px;
+  font-size: 12px;
+  gap: 6px;
+}
+
+#content .section-heading button.label-button .ui-icon {
+  width: 16px;
+  height: 16px;
+  min-width: 16px;
+}
+
+#content .section-heading button.label-button:not(.primary):not(.secondary) {
+  background: transparent;
+  border-color: transparent;
+  padding: 7px 6px;
+  font-size: 12px;
+  min-height: 40px;
+  gap: 6px;
+  box-shadow: none;
+}
+
+#content .section-heading button.label-button:not(.primary):not(.secondary):hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+#content .primary.label-button,
+.primary.label-button {
+  gap: 9px;
+  padding: 0 22px;
+  font-size: 13px;
+  min-height: 46px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 6px 22px rgba(124, 106, 255, 0.4);
+}
+
+#content .secondary.label-button,
+.secondary.label-button {
+  gap: 9px;
+  padding: 0 20px;
+  font-size: 13px;
+  min-height: 46px;
+  border-color: var(--glass-border);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+/* --------------------------------------------------------------------------
+   10. Feature Toolbar, Settings, & Track Actions
+   -------------------------------------------------------------------------- */
+#content .feature-toolbar button.label-button {
+  border-radius: 12px;
+  padding: 10px 14px;
+}
+
+.feature-toolbar .ui-icon {
+  width: 18px;
+  height: 18px;
+  min-width: 18px;
+}
+
+.settings-card button.label-button {
+  margin: 4px 4px 4px 0;
+  min-height: 44px;
+}
+
+.track-actions button.label-button {
+  justify-content: flex-start;
+  padding: 12px 14px;
+  gap: 12px;
+  min-height: 48px;
+  font-size: 13px;
+  border: 1px solid var(--glass-border);
+  background: rgba(255, 255, 255, 0.04) !important;
+  border-radius: 14px;
+}
+
+.track-actions .ui-icon {
+  color: #b0a0ff;
+}
+
+button[data-feature=track-delete],
+button[data-delete-playlist],
+button[data-feature=folder-delete] {
+  color: #ff9ba9 !important;
+}
+
+button[data-feature=track-delete] .ui-icon {
+  color: inherit;
+}
+
+/* --------------------------------------------------------------------------
+   11. Dialogs & Action Sheets
+   -------------------------------------------------------------------------- */
+.dialog-actions button.label-button {
+  padding: 10px 20px;
+  min-height: 44px;
+  border-radius: 14px;
+}
+
+#track-sheet > button.label-button {
+  min-height: 44px;
+  padding: 10px 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--glass-border);
+  border-radius: 14px;
+}
+
+/* --------------------------------------------------------------------------
+   12. Light Theme Overrides
+   -------------------------------------------------------------------------- */
+body.light button.icon-button:hover {
+  background: rgba(124, 106, 255, 0.06);
+}
+
+body.light .sidebar nav button.active {
+  color: #4a34ba;
+}
+
+body.light .sidebar nav button.active .ui-icon {
+  color: #6650db;
+}
+
+body.light .search .ui-icon {
+  color: #6650a0;
+}
+
+body.light .track-actions .ui-icon {
+  color: #7c6aff;
+}
+
+/* --------------------------------------------------------------------------
+   13. TV Mode Viewports
+   -------------------------------------------------------------------------- */
+.tv button.icon-button {
+  min-width: 52px;
+  min-height: 52px;
+}
+
+.tv .transport-buttons .play-main.icon-button {
+  width: 56px;
+  height: 56px;
+}
+
+.tv button .ui-icon {
+  width: 24px;
+  height: 24px;
+}
+
+.tv button:focus-visible {
+  outline-width: 4px;
+  box-shadow: 0 0 0 8px rgba(124, 106, 255, 0.3);
+}
+
+/* --------------------------------------------------------------------------
+   14. Mobile Responsive (<= 760px)
+   -------------------------------------------------------------------------- */
+@media (max-width: 760px) {
+  /* Mobile tabs */
+  .mobile-tabs button {
+    position: relative;
+  }
+
+  .mobile-tabs button.label-button {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    line-height: 1.1;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 10px;
+    padding: 5px;
+    min-height: 56px;
+  }
+
+  .mobile-tabs .ui-icon {
+    width: 22px;
+    height: 22px;
+    min-width: 22px;
+    stroke-width: 1.8;
+  }
+
+  .mobile-tabs button.active .ui-icon {
+    stroke-width: 2.2;
+  }
+
+  .mobile-tabs button.active {
+    color: #ff8fa0;
+    background: none;
+  }
+
+  .mobile-tabs button.active::after {
+    content: '';
+    width: 16px;
+    height: 2px;
+    border-radius: 2px;
+    background: #ff8fa0;
+    position: absolute;
+    bottom: 6px;
+  }
+
+  .mobile-tabs button.label-button:active {
+    transform: none;
+    background: rgba(255, 255, 255, 0.05);
+  }
+
+  /* Header & TV mode button */
+  header {
+    gap: 8px;
+  }
+
+  header > button.icon-button {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .search {
+    flex: 1;
+  }
+
+  #tv-mode {
+    margin-left: 0;
+  }
+
+  #tv-mode.label-button {
+    font-size: 0;
+    padding: 0;
+    width: 44px;
+    min-width: 44px;
+    height: 44px;
+    min-height: 44px;
+    border-radius: 50%;
+    gap: 0;
+  }
+
+  #tv-mode .ui-icon {
+    width: 19px;
+    height: 19px;
+  }
+
+  /* Transport & Timeline */
+  .transport-buttons {
+    gap: 10px;
+  }
+
+  .transport-buttons button.icon-button {
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    min-height: 40px;
+  }
+
+  .transport-buttons button.icon-button .ui-icon {
+    width: 20px;
+    height: 20px;
+  }
+
+  .transport-buttons .play-main.icon-button {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .timeline input {
+    height: 18px;
+  }
+
+  /* Now playing */
+  .now button.icon-button {
+    width: 36px;
+    min-width: 36px;
+    min-height: 44px;
+    height: 44px;
+  }
+
+  .now button.icon-button .ui-icon {
+    width: 19px;
+    height: 19px;
+  }
+
+  /* Hero buttons */
+  .hero .primary.label-button,
+  .hero .secondary.label-button {
+    padding: 0 16px;
+    font-size: 12px;
+    min-height: 44px;
+    gap: 6px;
+  }
+
+  .hero .label-button .ui-icon {
+    width: 17px;
+    height: 17px;
+    min-width: 17px;
+  }
+
+  /* Tracks & Queue */
+  .track > button.icon-button {
+    width: 44px;
+    min-width: 44px;
+    min-height: 44px;
+    height: 44px;
+  }
+
+  .track .ui-icon {
+    width: 18px;
+    height: 18px;
+    min-width: 18px;
+  }
+
+  .queue-actions button.icon-button {
+    width: 44px;
+    min-width: 44px;
+    height: 44px;
+    min-height: 44px;
+  }
+
+  /* Actions & Toolbars */
+  .track-actions button.label-button {
+    font-size: 12px;
+    padding: 12px 12px;
+    gap: 8px;
+    min-height: 48px;
+  }
+
+  #content .feature-toolbar button.label-button {
+    font-size: 12px;
+    padding: 9px 12px;
+  }
+
+  #content .section-heading button.label-button:not(.primary):not(.secondary) {
+    font-size: 11px;
+    padding: 5px 3px;
+    gap: 5px;
+  }
+
+  .section-heading {
+    column-gap: 6px;
+  }
+
+  .section-heading h2 {
+    font-size: 19px;
+  }
+
+  .section-heading .ui-icon {
+    width: 15px;
+    height: 15px;
+    min-width: 15px;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   15. Accessibility & Utility
+   -------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  button {
+    transition: none;
+  }
+}
+
+[hidden] {
+  display: none !important;
+}

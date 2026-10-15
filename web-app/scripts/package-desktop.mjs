@@ -1,0 +1,15 @@
+import packager from '@electron/packager';
+import { cp, mkdir, copyFile, writeFile, readFile } from 'node:fs/promises';
+import './build.mjs';
+const root = new URL('../', import.meta.url);
+const target = JSON.parse(await readFile(new URL('engine/build/platform.json', root), 'utf8'));
+if (target.platform !== process.platform || target.arch !== process.arch) throw new Error('Compile the music engine on the target platform before packaging.');
+const staging = new URL('release/staging/', root);
+await mkdir(staging, { recursive: true });
+for (const folder of ['desktop', 'dist', 'scripts', 'engine/build']) await cp(new URL(folder, root), new URL(folder, staging), { recursive: true });
+const pkg = JSON.parse(await readFile(new URL('package.json', root), 'utf8'));
+await writeFile(new URL('package.json', staging), JSON.stringify({ name: 'grove-music', productName: 'Grove', version: pkg.version, main: 'desktop/main.cjs', license: 'GPL-3.0-or-later' }, null, 2));
+await copyFile(new URL('../LICENSE', root), new URL('LICENSE', staging));
+const electron = JSON.parse(await readFile(new URL('node_modules/electron/package.json', root), 'utf8'));
+const out = await packager({ dir: staging.pathname, out: new URL('release', root).pathname, name: 'Grove', executableName: 'grove', platform: process.platform, arch: process.arch, electronVersion: electron.version, overwrite: true, prune: false, appBundleId: 'app.grove.music' });
+console.log(out.join('\n'));

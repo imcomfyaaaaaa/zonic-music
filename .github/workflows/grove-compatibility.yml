@@ -1,0 +1,64 @@
+name: Grove platform compatibility
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  desktop:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, macos-15, macos-15-intel]
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web-app/package-lock.json
+      - name: Set up matching Dart SDK
+        shell: bash
+        run: |
+          git clone --depth 1 --branch 3.47.6 https://github.com/flutter/flutter.git "$RUNNER_TEMP/flutter"
+          "$RUNNER_TEMP/flutter/bin/flutter" --version
+          echo "GROVE_DART=$RUNNER_TEMP/flutter/bin/cache/dart-sdk/bin/dart" >> "$GITHUB_ENV"
+      - run: npm ci
+        working-directory: web-app
+      - run: node node_modules/electron/install.js
+        working-directory: web-app
+      - run: npm run engine:build
+        working-directory: web-app
+      - run: npm test
+        working-directory: web-app
+      - run: npm run package:desktop
+        working-directory: web-app
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Grove-${{ matrix.runner }}
+          path: web-app/release/Grove-*
+  android:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - name: Set up Flutter
+        run: |
+          git clone --depth 1 --branch 3.47.6 https://github.com/flutter/flutter.git "$RUNNER_TEMP/flutter"
+          echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
+      - run: npm ci && npm run build
+        working-directory: web-app
+      - run: flutter pub get
+      - name: Verify original behavior
+        run: flutter test test/audio_service_android_auto_test.dart test/listening_stats_end_of_queue_test.dart test/queue_entry_utils_test.dart test/media_duration_test.dart test/sort_utils_test.dart test/map_utils_test.dart
+      - run: flutter build apk --debug --flavor github --target lib/grove_main.dart
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Grove-Android-TV-debug
+          path: build/app/outputs/flutter-apk/app-github-debug.apk

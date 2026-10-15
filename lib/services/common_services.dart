@@ -808,7 +808,7 @@ Future<String?> getSongLyrics(String? artist, String title) async {
   return lyrics.value;
 }
 
-Future<bool> makeSongOffline(dynamic song) async {
+Future<bool> makeSongOffline(dynamic song, {bool Function()? isCancelled, void Function(int received, int total)? onProgress}) async {
   try {
     final String? ytid = song['ytid'];
 
@@ -847,7 +847,13 @@ Future<bool> makeSongOffline(dynamic song) async {
 
       final stream = ytClient.videos.streamsClient.get(audioManifest);
       fileStream = audioFile.openWrite();
-      await stream.pipe(fileStream);
+      var received = 0;
+      await for (final chunk in stream) {
+        if (isCancelled?.call() == true) throw const FileSystemException('Download cancelled');
+        fileStream.add(chunk);
+        received += chunk.length;
+        onProgress?.call(received, audioManifest.size.totalBytes);
+      }
       await fileStream.flush();
       await fileStream.close();
       fileStream = null;

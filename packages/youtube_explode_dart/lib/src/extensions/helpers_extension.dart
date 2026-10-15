@@ -182,7 +182,10 @@ extension StringUtility2 on String? {
       return null;
     }
 
-    final qty = int.parse(parts.first);
+    // Some live results say "Streamed live" instead of a numeric age.
+    // Missing date metadata must not abort the entire search result page.
+    final qty = int.tryParse(parts.first);
+    if (qty == null) return null;
 
     // Try to get the unit
     final unit = parts[1];

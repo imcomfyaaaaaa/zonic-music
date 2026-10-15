@@ -1,0 +1,14 @@
+name: grove_engine
+description: Local music source bridge using Musify's original extraction packages.
+publish_to: none
+environment:
+  sdk: '>=3.13.0 <4.0.0'
+dependencies:
+  grove_source_engine:
+    path: ../../packages/grove_source_engine
+  youtube_explode_dart:
+    path: ../../packages/youtube_explode_dart
+  youtube_music_explode_dart:
+    path: ../../packages/youtube_music_explode_dart
+  http: ^1.0.0
+  html: ^0.15.0

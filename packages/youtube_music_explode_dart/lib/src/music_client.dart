@@ -213,6 +213,31 @@ class MusicClient {
   }
 
   /// Searches the YouTube Music "Songs" shelf for [query].
+  Future<List<Video>> searchSongs(String query) async {
+    final normalizedQuery = query.trim();
+    if (normalizedQuery.isEmpty) return [];
+
+    final root = await _httpClient.sendPost('search', {
+      'context': _remixContext,
+      'query': normalizedQuery,
+      'params': _songsSearchParams,
+    }, validate: true);
+
+    final results = <Video>[];
+    final seen = <String>{};
+    for (final item in _findRenderers(root, 'musicResponsiveListItemRenderer')) {
+      final videoId = _trackVideoId(item);
+      if (videoId == null || !seen.add(videoId)) continue;
+      final title = _flexColumnText(item, 0);
+      if (title == null || title.trim().isEmpty) continue;
+      final subtitleParts = _splitBullets(_flexColumnText(item, 1));
+      final artist = subtitleParts.isNotEmpty ? subtitleParts.first : '';
+      results.add(_trackVideo(item, videoId, title, artist, null));
+    }
+    return results;
+  }
+
+  /// Returns the best song from the same Songs shelf, optionally checking its credits.
   ///
   /// When supplied, [expectedArtist] and [expectedTitle] must loosely match
   /// the result's credited artist and title. This prevents common-title
@@ -222,45 +247,19 @@ class MusicClient {
     String? expectedArtist,
     String? expectedTitle,
   }) async {
-    final normalizedQuery = query.trim();
-    if (normalizedQuery.isEmpty) return null;
-
-    final root = await _httpClient.sendPost('search', {
-      'context': _remixContext,
-      'query': normalizedQuery,
-      'params': _songsSearchParams,
-    }, validate: true);
-
+    final results = await searchSongs(query);
     final isValidating = expectedArtist != null || expectedTitle != null;
-    Video? fallback;
-    for (final item in _findRenderers(
-      root,
-      'musicResponsiveListItemRenderer',
-    )) {
-      final videoId = _trackVideoId(item);
-      if (videoId == null) continue;
-
-      final title = _flexColumnText(item, 0);
-      if (title == null || title.isEmpty) continue;
-
-      final subtitleParts = _splitBullets(_flexColumnText(item, 1));
-      final artist = subtitleParts.isNotEmpty ? subtitleParts.first : '';
-
-      final video = _trackVideo(item, videoId, title, artist, null);
-      fallback ??= video;
-
-      if (expectedArtist != null && !_looselyMatch(artist, expectedArtist)) {
+    for (final video in results) {
+      if (expectedArtist != null && !_looselyMatch(video.author, expectedArtist)) {
         continue;
       }
-      if (expectedTitle != null && !_looselyMatch(title, expectedTitle)) {
+      if (expectedTitle != null && !_looselyMatch(video.title, expectedTitle)) {
         continue;
       }
-
       return video;
     }
-
     // Only use the first result when no expected values were provided.
-    return isValidating ? null : fallback;
+    return isValidating || results.isEmpty ? null : results.first;
   }
 
   /// Splits a `Song • Artist • Album` style subtitle line on its bullet

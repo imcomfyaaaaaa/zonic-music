@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Zonic — UI Prototype</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;800&display=swap">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="amb" aria-hidden="true"><i></i><i></i><i></i></div>
+<div class="app">
+<aside class="side"><div class="logo"><i><svg width="16" height="16" viewBox="0 0 64 64" aria-hidden="true"><path d="M20 22h24L20 42h24" fill="none" stroke="#fff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/></svg></i>Zonic</div>
+<button class="nav" data-v="home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11l9-8 9 8M5 10v10h14V10"/></svg><span>Home</span></button><button class="nav" data-v="browse"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.5-4.5"/></svg><span>Browse</span></button><button class="nav" data-v="library"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span>Library</span></button><div class="plh">PLAYLISTS</div><div id="plNav"></div><button class="nav" data-new="1">+ New playlist</button></aside>
+<main id="main"></main>
+<aside class="queue" aria-label="Up next"><h2>Up next</h2><div id="qList"></div></aside>
+<footer class="play">
+<div class="now"><div class="art" id="pArt"></div><div style="min-width:0"><b id="pT" style="display:block;font-size:14px"></b><small id="pA"></small></div><button class="ib" id="like" aria-label="Like song" aria-pressed="false"></button><button class="ib" id="add" aria-label="Add to playlist" aria-expanded="false"></button><div class="menu" id="menu" hidden></div></div>
+<div class="mid"><div class="ctl"><button class="ib" id="prev" aria-label="Previous"></button><button class="ib pp" id="pp" aria-label="Play"></button><button class="ib" id="next" aria-label="Next"></button></div>
+<div class="seek"><span id="pos">0:00</span><input type="range" id="rng" min="0" value="0" aria-label="Seek"><span id="dur">0:00</span></div></div>
+</footer>
+<nav class="tabs" aria-label="Sections"><button class="nav" data-v="home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11l9-8 9 8M5 10v10h14V10"/></svg><span>Home</span></button><button class="nav" data-v="browse"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.5-4.5"/></svg><span>Browse</span></button><button class="nav" data-v="library"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span>Library</span></button></nav>
+</div>
+<script src="app.js"></script>
+</body>
+</html>

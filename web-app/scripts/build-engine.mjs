@@ -1,0 +1,13 @@
+import { execFileSync } from 'node:child_process';
+import { mkdirSync, existsSync, renameSync, writeFileSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
+const cwd = new URL('../engine/', import.meta.url).pathname;
+const installed = join(homedir(), '.local/share/grove/dart-sdk/bin/dart');
+const dart = process.env.GROVE_DART || (existsSync(installed) ? installed : 'dart');
+mkdirSync(join(cwd, 'build'), { recursive: true });
+execFileSync(dart, ['pub', 'get'], { cwd, stdio: 'inherit' });
+const temp = join(cwd, 'build/grove-engine.next');
+execFileSync(dart, ['compile', 'exe', 'bin/server.dart', '-o', temp], { cwd, stdio: 'inherit' });
+renameSync(temp, join(cwd, 'build/grove-engine'));
+writeFileSync(join(cwd, 'build/platform.json'), JSON.stringify({ platform: process.platform, arch: process.arch }));

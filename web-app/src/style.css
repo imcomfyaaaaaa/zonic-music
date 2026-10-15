@@ -1,0 +1,1225 @@
+/* ==========================================================================
+   Grove Music Web App — Base Structural Stylesheet (Crystalline Theme)
+   Handles layout geometry, positioning, resets, and responsive frameworks.
+   Visual themes, frosted glass, and gradients are enhanced in zonic.css.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. Root Variables & Reset
+   -------------------------------------------------------------------------- */
+:root {
+  color-scheme: dark;
+  --bg: #08090e;
+  --panel: #10121a;
+  --surface: #161825;
+  --line: rgba(255, 255, 255, 0.08);
+  --text: #f7f8fc;
+  --muted: #8b8fa8;
+  --accent: #7c6aff;
+  font-family: 'DM Sans', Manrope, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 15px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+button,
+a,
+input,
+select {
+  outline-offset: 4px;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 3px solid var(--accent);
+}
+
+button {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  border-radius: 12px;
+  transition: background-color 0.16s ease, transform 0.1s ease;
+}
+
+button:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+input {
+  color: inherit;
+}
+
+input[type="range"] {
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+h1,
+h2,
+h3,
+.brand {
+  font-family: Manrope, sans-serif;
+}
+
+h1 {
+  font-size: 32px;
+  letter-spacing: -1.2px;
+  margin: 12px 0 6px;
+  font-weight: 800;
+}
+
+h2 {
+  font-size: 21px;
+  letter-spacing: -0.5px;
+  font-weight: 800;
+}
+
+p {
+  color: var(--muted);
+  line-height: 1.65;
+}
+
+small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* --------------------------------------------------------------------------
+   2. Sidebar Navigation
+   -------------------------------------------------------------------------- */
+.sidebar {
+  position: fixed;
+  inset: 0 auto 108px 0;
+  width: 220px;
+  background: #0d0f17;
+  border-right: 1px solid var(--line);
+  padding: 24px 14px;
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+  z-index: 3;
+}
+
+.brand {
+  font-weight: 800;
+  font-size: 24px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 32px;
+  letter-spacing: -0.8px;
+}
+
+.brand-icon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  color: #fff;
+  background: var(--accent);
+  border-radius: 10px;
+}
+
+.brand-dot {
+  color: var(--accent);
+  font-size: 8px;
+  align-self: flex-start;
+  margin-top: 8px;
+}
+
+.nav-label {
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: var(--muted);
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+nav {
+  display: grid;
+  gap: 4px;
+}
+
+nav button,
+.sidebar-bottom button,
+#playlist-nav button {
+  padding: 11px 12px;
+  text-align: left;
+  width: 100%;
+  color: var(--muted);
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  border-radius: 12px;
+}
+
+nav button span {
+  font-size: 20px;
+  width: 20px;
+}
+
+nav button.active,
+#playlist-nav button.active {
+  background: rgba(124, 106, 255, 0.16);
+  color: var(--text);
+}
+
+.playlist-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 28px;
+}
+
+.playlist-label .nav-label {
+  margin: 0;
+}
+
+.playlist-label button {
+  font-size: 22px;
+}
+
+#playlist-nav {
+  margin-top: 8px;
+}
+
+.sidebar-bottom {
+  margin-top: auto;
+  padding-top: 28px;
+}
+
+.sidebar-bottom small {
+  display: block;
+  padding: 12px 10px;
+  font-size: 10px;
+  opacity: 0.65;
+}
+
+/* --------------------------------------------------------------------------
+   3. Main Viewport & Header
+   -------------------------------------------------------------------------- */
+main {
+  margin-left: 220px;
+  padding: 0 40px 150px;
+  max-width: 1600px;
+}
+
+header {
+  height: 72px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.search {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 520px;
+  width: 100%;
+  background: #141724;
+  border: 1px solid var(--line);
+  border-radius: 26px;
+  padding: 9px 16px;
+  min-width: 0;
+}
+
+.search span {
+  font-size: 22px;
+  color: var(--muted);
+}
+
+.search input {
+  background: none;
+  border: 0;
+  width: 100%;
+  min-width: 0;
+  outline: none;
+  font-size: 14px;
+}
+
+.search kbd {
+  color: var(--muted);
+  border: 1px solid var(--line);
+  padding: 2px 6px;
+  border-radius: 6px;
+  font-size: 11px;
+}
+
+header > button {
+  margin-left: auto;
+  color: var(--muted);
+  padding: 8px;
+}
+
+header > button + button {
+  margin-left: 0;
+}
+
+.profile {
+  background: linear-gradient(135deg, #7c6aff, #ff6b8a);
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-weight: 700;
+  flex: none;
+}
+
+.eyebrow {
+  letter-spacing: 2px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.page-top {
+  margin: 10px 0 24px;
+}
+
+.page-top p {
+  margin: 0;
+  font-size: 14px;
+}
+
+/* --------------------------------------------------------------------------
+   4. Hero Section
+   -------------------------------------------------------------------------- */
+.hero {
+  position: relative;
+  overflow: hidden;
+  min-height: 260px;
+  background: linear-gradient(115deg, #181930, #111322 60%, #16182c);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 32px 36px;
+  gap: 24px;
+}
+
+.hero-copy {
+  position: relative;
+  z-index: 1;
+  max-width: 440px;
+  flex: 1;
+  min-width: 0;
+}
+
+.hero h2 {
+  font-size: 38px;
+  line-height: 1.12;
+  margin: 10px 0 12px;
+  letter-spacing: -1.4px;
+}
+
+.hero p {
+  color: var(--muted);
+  margin: 0 0 22px;
+  max-width: 360px;
+}
+
+.primary {
+  background: var(--accent);
+  color: #fff;
+  font-weight: 700;
+  padding: 12px 24px;
+  border-radius: 24px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.primary:hover {
+  filter: brightness(1.1);
+}
+
+.secondary {
+  border: 1px solid var(--line);
+  padding: 11px 20px;
+  border-radius: 24px;
+  margin-left: 8px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.hero-art {
+  position: relative;
+  width: 180px;
+  height: 180px;
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  border-radius: 24px;
+  overflow: hidden;
+  flex: none;
+}
+
+.record {
+  display: none;
+}
+
+/* --------------------------------------------------------------------------
+   5. Content Cards & Shelves
+   -------------------------------------------------------------------------- */
+.section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 28px;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.section-heading > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.section-heading button {
+  color: var(--muted);
+  padding: 6px 10px;
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(155px, 1fr));
+  gap: 18px;
+}
+
+.card {
+  background: #12141f;
+  border: 1px solid var(--line);
+  padding: 10px;
+  border-radius: 18px;
+  text-align: left;
+  min-width: 0;
+}
+
+.cover {
+  border-radius: 14px;
+  background: linear-gradient(140deg, #362e6e, #181930);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  color: #fff;
+  aspect-ratio: 1;
+  font-size: 38px;
+}
+
+.cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.card strong {
+  display: block;
+  margin: 12px 0 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+}
+
+.card small {
+  display: block;
+  margin-bottom: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.empty {
+  padding: 48px 24px;
+  border: 1px dashed var(--line);
+  border-radius: 20px;
+  text-align: center;
+  background: #11131c;
+}
+
+.empty h3 {
+  font-size: 20px;
+}
+
+.empty p {
+  max-width: 500px;
+  margin: 12px auto 24px;
+}
+
+/* --------------------------------------------------------------------------
+   6. Track List Rows
+   -------------------------------------------------------------------------- */
+.rows {
+  display: grid;
+  gap: 2px;
+}
+
+.track {
+  display: grid;
+  grid-template-columns: 28px 44px minmax(100px, 1fr) auto auto;
+  align-items: center;
+  gap: 12px;
+  padding: 8px;
+  border-radius: 14px;
+  min-height: 60px;
+}
+
+.track:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.track.current {
+  background: rgba(124, 106, 255, 0.12);
+}
+
+.track .number {
+  color: var(--muted);
+  font-size: 12px;
+  text-align: center;
+}
+
+.track .cover {
+  font-size: 20px;
+  border-radius: 10px;
+  width: 44px;
+  height: 44px;
+}
+
+.track .track-name {
+  padding: 4px 2px;
+  text-align: left;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.track strong {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+}
+
+.track small {
+  display: block;
+  margin-top: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.track button {
+  padding: 8px;
+}
+
+.liked {
+  color: #ff6b8a;
+}
+
+/* --------------------------------------------------------------------------
+   7. Fixed Player Bar
+   -------------------------------------------------------------------------- */
+.player {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 108px;
+  background: #0f111a;
+  border-top: 1px solid var(--line);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 1.4fr) minmax(140px, 0.7fr);
+  gap: 18px;
+  align-items: center;
+  padding: 14px 28px;
+  z-index: 10;
+}
+
+.now {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+.small {
+  width: 56px;
+  height: 56px;
+  font-size: 26px;
+  border-radius: 14px;
+  flex-shrink: 0;
+}
+
+.now > div:nth-child(2) {
+  overflow: hidden;
+  flex: 1;
+}
+
+.now strong,
+.now small {
+  display: block;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+
+.now small {
+  margin-top: 4px;
+  font-size: 11px;
+}
+
+.now button {
+  margin-left: 8px;
+  font-size: 20px;
+}
+
+.now #now-more {
+  margin-left: 0;
+  flex-shrink: 0;
+}
+
+.transport-buttons {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+}
+
+.transport-buttons button {
+  font-size: 18px;
+  padding: 6px;
+}
+
+.transport-buttons .play-main {
+  width: 48px;
+  height: 48px;
+  background: var(--accent);
+  color: #fff;
+  border-radius: 50%;
+  font-size: 18px;
+}
+
+.timeline {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-top: 6px;
+}
+
+.timeline input {
+  width: 100%;
+  height: 4px;
+}
+
+.timeline small {
+  font-size: 10px;
+  min-width: 32px;
+  font-variant-numeric: tabular-nums;
+}
+
+.extras {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 14px;
+}
+
+.extras button {
+  font-size: 22px;
+}
+
+.extras input {
+  width: 80px;
+  height: 4px;
+}
+
+/* --------------------------------------------------------------------------
+   8. Settings, Stats, & Controls
+   -------------------------------------------------------------------------- */
+.settings-grid {
+  display: grid;
+  gap: 18px;
+  max-width: none;
+}
+
+.settings-card {
+  padding: 24px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  min-width: 0;
+}
+
+.settings-card h3 {
+  margin-top: 0;
+}
+
+.settings-card label {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 14px 0;
+  flex-wrap: wrap;
+}
+
+.settings-card select,
+.settings-card input[type="text"] {
+  padding: 9px 12px;
+  background: #171a27;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.bands {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.bands label {
+  display: grid;
+  gap: 8px;
+}
+
+.bands input {
+  width: 100px;
+}
+
+.stat-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+  margin: 28px 0;
+}
+
+.stat {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  padding: 24px;
+  border-radius: 18px;
+}
+
+.stat strong {
+  display: block;
+  font-size: 36px;
+  color: var(--accent);
+  margin-bottom: 8px;
+}
+
+/* --------------------------------------------------------------------------
+   9. Dialogs, Modals, & Toasts
+   -------------------------------------------------------------------------- */
+dialog {
+  background: #151724;
+  color: var(--text);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 24px;
+  padding: 28px;
+  max-width: 440px;
+  width: 90%;
+}
+
+dialog::backdrop {
+  background: rgba(0, 0, 0, 0.7);
+}
+
+dialog label {
+  display: block;
+  margin-bottom: 12px;
+  color: var(--muted);
+}
+
+dialog input {
+  width: 100%;
+  background: #0f111a;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.dialog-actions {
+  display: flex;
+  gap: 14px;
+  justify-content: flex-end;
+  margin-top: 24px;
+}
+
+.dialog-actions button {
+  padding: 10px 18px;
+}
+
+#toast {
+  position: fixed;
+  bottom: 130px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #f0ebff;
+  color: #1a1638;
+  border-radius: 18px;
+  padding: 14px 22px;
+  z-index: 30;
+  max-width: 90%;
+  display: none;
+  font-weight: 600;
+}
+
+/* --------------------------------------------------------------------------
+   10. Feature Toolbars, Playlists, & Action Sheets
+   -------------------------------------------------------------------------- */
+.feature-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 18px 0;
+}
+
+.feature-toolbar button,
+.track-actions button {
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+}
+
+.feature-toolbar input,
+.feature-toolbar select,
+select {
+  max-width: 100%;
+  background: var(--panel);
+  color: var(--text);
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.feature-toolbar label {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.playlist-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 14px;
+}
+
+.playlist-grid small {
+  display: block;
+  margin: 10px 0;
+}
+
+.playlist-cover {
+  width: 140px;
+  height: 140px;
+  float: right;
+  margin: 0 0 15px 20px;
+  border-radius: 16px;
+}
+
+.track-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 20px 0;
+}
+
+.track-actions button {
+  text-align: left;
+}
+
+#track-sheet label {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+#track-sheet input:not([type="checkbox"]) {
+  width: 100%;
+  min-width: 0;
+  background: var(--panel);
+  color: var(--text);
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+/* --------------------------------------------------------------------------
+   11. TV Mode Baseline
+   -------------------------------------------------------------------------- */
+.tv {
+  font-size: 20px;
+}
+
+.tv .sidebar {
+  width: 260px;
+}
+
+.tv main {
+  margin-left: 260px;
+}
+
+.tv button {
+  min-height: 52px;
+}
+
+.tv .cards {
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+}
+
+.tv :focus-visible {
+  outline-width: 4px;
+  background: rgba(124, 106, 255, 0.2);
+}
+
+/* --------------------------------------------------------------------------
+   12. Utilities & Helper Classes
+   -------------------------------------------------------------------------- */
+.muted {
+  color: var(--muted);
+}
+
+.danger {
+  color: #ff9ba9;
+}
+
+.queue-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.lyrics {
+  white-space: pre-wrap;
+  line-height: 1.9;
+  color: var(--text);
+}
+
+.pill {
+  display: inline-block;
+  font-size: 10px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 4px 10px;
+  color: var(--accent);
+  margin-left: 10px;
+}
+
+/* --------------------------------------------------------------------------
+   13. Themes: Light & Black Overrides
+   -------------------------------------------------------------------------- */
+body.light {
+  --bg: #f4f5fa;
+  --panel: #ffffff;
+  --line: rgba(0, 0, 0, 0.08);
+  --text: #0e0f14;
+  --muted: #454a64;
+  --accent: #7c6aff;
+  color-scheme: light;
+}
+
+body.light .sidebar,
+body.light .player {
+  background: #e9ecf5;
+}
+
+body.light .search,
+body.light .card,
+body.light .empty,
+body.light .track-actions button,
+body.light .feature-toolbar button {
+  background: #edf0f8;
+}
+
+body.light .hero {
+  background: linear-gradient(110deg, #d8d4f8, #e8e5fc);
+}
+
+body.light .hero p {
+  color: var(--muted);
+}
+
+body.light .search input {
+  color: var(--text);
+}
+
+body.light dialog {
+  background: #f7f6ff;
+  color: var(--text);
+}
+
+body.black {
+  --bg: #000000;
+  --panel: #0a0a0e;
+  --surface: #101014;
+}
+
+/* --------------------------------------------------------------------------
+   14. Directional (RTL) Layout
+   -------------------------------------------------------------------------- */
+[dir="rtl"] .sidebar {
+  right: 0;
+  left: auto;
+}
+
+[dir="rtl"] main {
+  margin-left: 0;
+  margin-right: 220px;
+}
+
+/* --------------------------------------------------------------------------
+   15. Responsive Breakpoints
+   -------------------------------------------------------------------------- */
+@media (min-width: 1500px) {
+  main {
+    padding-left: 56px;
+    padding-right: 56px;
+  }
+  .hero {
+    min-height: 300px;
+  }
+}
+
+@media (max-width: 1179px) {
+  .cards {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .hero-art {
+    width: 140px;
+    height: 140px;
+    opacity: 0.7;
+  }
+  .hero-copy {
+    max-width: 380px;
+  }
+  .player {
+    grid-template-columns: 1fr 1fr;
+  }
+  .extras {
+    display: none;
+  }
+  main {
+    padding-left: 24px;
+    padding-right: 24px;
+  }
+  .sidebar {
+    width: 210px;
+  }
+  main {
+    margin-left: 210px;
+  }
+}
+
+@media (max-width: 760px) {
+  [dir="rtl"] main {
+    margin-right: 0;
+  }
+  .sidebar {
+    display: none;
+  }
+  main,
+  .tv main {
+    margin-left: 0;
+    padding: 70px 16px 280px;
+  }
+  header {
+    height: 58px;
+    gap: 8px;
+  }
+  header .profile,
+  .search kbd {
+    display: none;
+  }
+  header > button {
+    white-space: nowrap;
+    font-size: 11px;
+    padding: 6px;
+  }
+  .search {
+    padding: 6px 12px;
+    min-height: 44px;
+  }
+  .search input {
+    font-size: 13px;
+  }
+  h1 {
+    font-size: 28px;
+  }
+  .hero {
+    min-height: 210px;
+    padding: 22px;
+    border-radius: 24px;
+    gap: 14px;
+  }
+  .hero h2 {
+    font-size: 28px;
+    letter-spacing: -1px;
+  }
+  .hero-art {
+    width: 90px;
+    height: 90px;
+    border-radius: 18px;
+    opacity: 1;
+  }
+  .hero p {
+    font-size: 12px;
+    margin-bottom: 14px;
+  }
+  .hero .secondary {
+    margin-left: 0;
+    margin-top: 8px;
+  }
+  .cards,
+  .tv .cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+  }
+  .player {
+    left: 0;
+    right: 0;
+    bottom: 68px;
+    height: 156px;
+    padding: 10px 16px;
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+  .now {
+    gap: 10px;
+  }
+  .now .small {
+    width: 42px;
+    height: 42px;
+    font-size: 20px;
+  }
+  .now strong {
+    font-size: 12px;
+  }
+  .now small {
+    font-size: 10px;
+  }
+  .now button {
+    margin-left: auto;
+  }
+  .transport-buttons {
+    gap: 14px;
+  }
+  .transport-buttons .play-main {
+    width: 42px;
+    height: 42px;
+  }
+  .timeline {
+    margin-top: 2px;
+  }
+  .timeline small {
+    font-size: 9px;
+  }
+  .track {
+    grid-template-columns: 22px 36px minmax(0, 1fr) auto auto;
+    gap: 6px;
+    padding: 6px;
+    min-height: 54px;
+  }
+  .track button {
+    padding: 6px;
+  }
+  .track strong {
+    font-size: 12px;
+  }
+  .track small {
+    font-size: 10px;
+  }
+  .stat-cards {
+    gap: 10px;
+  }
+  .stat {
+    padding: 16px;
+  }
+  .stat strong {
+    font-size: 28px;
+  }
+  .playlist-cover {
+    width: 90px;
+    height: 90px;
+  }
+  .feature-toolbar {
+    gap: 6px;
+  }
+  .feature-toolbar input {
+    min-width: 0;
+    width: 100%;
+  }
+  #toast {
+    bottom: 240px;
+  }
+  .queue-actions {
+    gap: 0;
+  }
+  .page-top {
+    margin: 0 0 16px;
+  }
+}
+
+@media (max-width: 380px) {
+  .hero-art {
+    display: none;
+  }
+  .hero h2 {
+    font-size: 24px;
+  }
+  .hero {
+    padding: 16px;
+  }
+}
+
+@media (max-height: 500px) and (max-width: 900px) {
+  .hero {
+    display: none;
+  }
+  .player {
+    height: 92px;
+    bottom: 56px;
+  }
+  .now .small {
+    width: 32px;
+    height: 32px;
+  }
+  main {
+    padding-bottom: 180px;
+  }
+}
+
+[hidden] {
+  display: none !important;
+}

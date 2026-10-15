@@ -1,0 +1,38 @@
+import { test, expect } from '@playwright/test';
+test('Zonic desktop layout exposes real queue and responsive glass panels', async ({ page }) => {
+ await page.setViewportSize({ width: 1440, height: 1000 }); await page.goto('/');
+ await expect(page.locator('.queue-rail')).toBeHidden();
+ await page.locator('#queue-toggle').click();
+ await expect(page.locator('.queue-rail')).toBeVisible();
+ await page.keyboard.press('Escape');
+ await expect(page.locator('.queue-rail')).toBeHidden();
+ await page.locator('#player-expand').click();
+ await expect(page.locator('body')).toHaveClass(/player-expanded/);
+ await page.keyboard.press('Escape');
+ await expect(page.locator('body')).not.toHaveClass(/player-expanded/);
+ await expect(page.locator('.sidebar')).toBeVisible();
+ await expect(page.locator('.hero')).toBeVisible();
+ await page.locator('[data-zone="Rock"]').click();
+ await expect(page.locator('[data-zone="Rock"]')).toHaveAttribute('aria-pressed', 'true');
+ await expect(page.locator('#content > .cards .card').first()).toContainText('Rock');
+ await page.screenshot({ path: '/tmp/grove-zonic-desktop.png' });
+ await page.locator('.sidebar [data-view="browse"]').click();
+ await expect(page.getByRole('heading', { name: 'Browse', exact: true })).toBeVisible();
+ await expect(page.locator('#search')).toBeFocused();
+});
+test('Zonic phone tabs preserve access to library, playlists and settings', async ({ page }) => {
+ await page.setViewportSize({ width: 390, height: 844 }); await page.goto('/');
+ await expect(page.locator('.mobile-tabs')).toBeVisible(); await expect(page.locator('.sidebar')).toBeHidden();
+ expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+ await page.screenshot({ path: '/tmp/grove-zonic-mobile.png' });
+ await page.locator('#player-expand').click();
+ await expect(page.locator('#player-expand')).toHaveAttribute('aria-expanded', 'true');
+ const artwork = await page.locator('#now-art').boundingBox();
+ expect(artwork.width).toBeGreaterThan(200);
+ await page.screenshot({ path: '/tmp/zonic-expanded-mobile.png' });
+ await page.locator('#player-expand').click();
+ await page.locator('.mobile-tabs [data-view="library"]').click();
+ await expect(page.getByRole('heading', { name: 'Your library', exact: true })).toBeVisible();
+ await page.locator('header [data-view="settings"]').click();
+ await expect(page.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible();
+});

@@ -1,0 +1,14 @@
+name: grove_source_engine
+description: Musify sources shared between Grove's native and desktop shells.
+version: 0.1.0
+publish_to: none
+environment:
+  sdk: '>=3.13.0 <4.0.0'
+dependencies:
+  youtube_explode_dart:
+    path: ../youtube_explode_dart
+  youtube_music_explode_dart:
+    path: ../youtube_music_explode_dart
+  http: ^1.0.0
+  html: ^0.15.0
+  hive: ^2.2.3

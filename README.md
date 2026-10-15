@@ -1,3 +1,29 @@
+# Zonic Music
+
+Zonic is a music app built on Musify with a shared web interface for desktop, Android, and Android TV. The interface uses violet and coral glass surfaces, a listening queue drawer, and an expanded player.
+
+The app includes YouTube music search and playback, local music, Radio Browser stations, playlists and YouTube playlist syncing, on-device Smart Shuffle, and TV controls from a phone.
+
+- UI source: [`web-app/index.html`](web-app/index.html), [`web-app/src/`](web-app/src/), and [`web-app/brand/`](web-app/brand/).
+- Native Android shell: [`lib/grove_main.dart`](lib/grove_main.dart) and [`lib/grove/`](lib/grove/).
+- Shared music engine: [`packages/grove_source_engine/`](packages/grove_source_engine/).
+- Development and build instructions: [`web-app/README.md`](web-app/README.md).
+
+To start development after installing Node.js, Flutter/Dart, and the project dependencies:
+
+```sh
+flutter pub get
+cd web-app
+npm ci
+npm run dev
+```
+
+Open `http://127.0.0.1:4317/`. For music engine setup and platform requirements, see the development instructions linked above. Internal filenames and commands retain the earlier Grove name for compatibility.
+
+Zonic derives from [Musify](https://github.com/gokadzev/Musify) and is licensed under GPLv3 or later. Original project information and attribution follow.
+
+---
+
 <div align="center">
 <img src="https://github.com/gokadzev/Musify/raw/master/.github/assets/Musify-banner.png" width="100%">
 
