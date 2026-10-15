@@ -7,14 +7,12 @@ import './build.mjs';
 const engine = startEngine();
 const root = resolve(new URL('../dist', import.meta.url).pathname);
 const types = { '.html': 'text/html', '.ttf': 'font/ttf', '.js': 'text/javascript', '.mjs': 'text/javascript', '.wasm': 'application/wasm', '.onnx': 'application/octet-stream', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.svg': 'image/svg+xml', '.ico': 'image/x-icon' };
-const bindHost = process.env.HOST || '127.0.0.1';
+const bindHost = process.env.HOST || '0.0.0.0';
 export const server = createServer(async (req, res) => {
   try {
-    const port = server.address()?.port;
     let requestHost;
     try { requestHost = new URL(`http://${req.headers.host}`); } catch { res.writeHead(403).end(); return; }
-    if (requestHost.port !== String(port)) { res.writeHead(403).end(); return; }
-    const parsed = new URL(req.url, 'http://localhost');
+    const parsed = new URL(req.url, `http://${requestHost.hostname}`);
     const pathname = decodeURIComponent(parsed.pathname);
     if (pathname.startsWith('/api/')) {
       if (!['GET', 'POST'].includes(req.method) || (req.headers.origin && req.headers.origin !== `http://${req.headers.host}`)) { res.writeHead(403).end(); return; }
