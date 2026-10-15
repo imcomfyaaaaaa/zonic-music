@@ -283,3 +283,80 @@ body.light .settings-intro { color:#fff; }
   .playlist-grid { grid-template-columns:1fr; }
 }
 .tv :focus-visible { outline:3px solid #d4caff;outline-offset:3px; }
+
+/* Zonic Studio — a quieter, more editorial streaming surface. */
+:root {
+  --bg:#0b0d12; --panel:#11151c; --surface:#171c24; --surface-2:#1d232d;
+  --text:#f5f7fa; --muted:#929ba8; --line:rgba(255,255,255,.09);
+  --accent:#b7f36b; --accent-strong:#d4ff91; --accent-ink:#17200d;
+  --violet:#b7f36b; --coral:#ff9b71; --glass:rgba(17,21,28,.88);
+  --glass-border:rgba(255,255,255,.1); --shadow:0 24px 70px rgba(0,0,0,.34);
+}
+html { background:var(--bg); }
+body {
+  background:radial-gradient(850px 520px at 72% -14%,rgba(183,243,107,.12),transparent 66%),
+    radial-gradient(720px 520px at 5% 85%,rgba(255,155,113,.08),transparent 70%),var(--bg);
+}
+body:before { content:'';position:fixed;inset:0;pointer-events:none;opacity:.18;background-image:linear-gradient(rgba(255,255,255,.02) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.02) 1px,transparent 1px);background-size:48px 48px;mask-image:linear-gradient(to bottom,black,transparent 72%); }
+.sidebar,.queue-rail,.player,.mobile-tabs { background:rgba(15,19,25,.9);border-color:var(--line);box-shadow:inset 0 1px 0 rgba(255,255,255,.06),var(--shadow);backdrop-filter:blur(22px) saturate(125%); }
+.sidebar { border-radius:20px; }
+.brand-mark { border-radius:14px; }
+.sidebar nav button.active,#playlist-nav button.active { color:var(--accent);background:rgba(183,243,107,.12);box-shadow:inset 3px 0 0 var(--accent); }
+.sidebar nav button.active .ui-icon { color:var(--accent); }
+.nav-label,.queue-kicker { color:#77818e;letter-spacing:2.4px; }
+.search { background:var(--surface);border-color:var(--line);border-radius:14px; }
+.search:focus-within { border-color:rgba(183,243,107,.6);box-shadow:0 0 0 4px rgba(183,243,107,.1); }
+.search kbd { color:var(--muted);border:1px solid var(--line);background:rgba(255,255,255,.04); }
+header>button { border:1px solid var(--line);background:rgba(255,255,255,.03);padding:10px 13px; }
+header>button:hover { background:rgba(183,243,107,.1);color:var(--accent); }
+.page-top .eyebrow,.settings-card-kicker,.settings-kicker { color:var(--accent); }
+.page-top h1 { font-size:clamp(38px,4vw,56px);letter-spacing:-2.7px; }
+.page-top p { color:#9ba4b0; }
+.home-feature .hero { min-height:330px;border-radius:24px;padding:32px;background:linear-gradient(115deg,#1e2920 0%,#18221c 42%,#24231d 100%);border-color:rgba(183,243,107,.18);box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 24px 65px rgba(0,0,0,.24); }
+.hero:after { background:rgba(183,243,107,.14); }
+.hero h2 { font-size:clamp(42px,5vw,72px);letter-spacing:-3.8px; }
+.hero .eyebrow { color:var(--accent); }
+.hero-art { border-radius:22px;transform:rotate(-5deg);background:#334322;box-shadow:0 22px 48px rgba(0,0,0,.45); }
+.primary,.transport-buttons .play-main.icon-button { background:var(--accent)!important;color:var(--accent-ink)!important;border-color:var(--accent)!important;box-shadow:0 10px 28px rgba(183,243,107,.16)!important; }
+.primary:hover { background:var(--accent-strong)!important; }
+.secondary { background:rgba(255,255,255,.05);border-color:var(--line); }
+.home-shortcuts button { background:var(--surface);border-color:var(--line);border-radius:15px; }
+.home-shortcuts button:hover { background:var(--surface-2);border-color:rgba(183,243,107,.28); }
+.shortcut-symbol { background:rgba(183,243,107,.13);color:var(--accent); }
+.home-shortcuts button:nth-child(2) .shortcut-symbol { background:rgba(255,155,113,.13);color:var(--coral); }
+.home-shortcuts button:nth-child(3) .shortcut-symbol { background:rgba(160,178,255,.13);color:#a9b9ff; }
+.section-heading { margin-top:36px; }
+.section-heading button { color:var(--accent); }
+.cards,.tv .cards { gap:16px; }
+.card { background:var(--surface)!important;border-color:var(--line)!important;border-radius:16px!important; }
+.card:hover { background:var(--surface-2)!important;border-color:rgba(183,243,107,.28)!important;transform:translateY(-5px); }
+.card .cover { border-radius:11px; }
+.zone-chip { background:var(--surface);border-color:var(--line);border-radius:999px; }
+.zone-chip.active { background:var(--accent);color:var(--accent-ink);border-color:var(--accent); }
+.track { background:rgba(23,28,36,.8);border-color:var(--line); }
+.track:hover { background:var(--surface-2);border-color:rgba(183,243,107,.24); }
+.track.current { background:rgba(183,243,107,.1);border-color:rgba(183,243,107,.3);box-shadow:inset 3px 0 0 var(--accent); }
+.track.current strong,.liked { color:var(--accent); }
+.queue-rail { border-radius:20px; }
+.player { background:rgba(17,21,28,.95);border-radius:18px; }
+.timeline input,.extras input { accent-color:var(--accent); }
+.settings-card,.stat,.empty,.radio-browser-panel,.radio-tile,.feature-toolbar { background:var(--surface)!important;border-color:var(--line)!important; }
+.settings-intro { background:linear-gradient(120deg,#1f2a20,#1b221d 55%,#2a211d);border-color:rgba(183,243,107,.18); }
+.settings-jump a { background:var(--surface);border-color:var(--line); }
+.radio-search-wrap button { background:var(--accent);color:var(--accent-ink); }
+.radio-live-dot,.radio-tile-play em { color:var(--coral); }
+.radio-tile-like.liked { color:var(--accent); }
+#toast { background:var(--accent);color:var(--accent-ink); }
+@media(max-width:760px) {
+  main,.tv main,[dir=rtl] main { padding:13px 12px 225px; }
+  header { margin-bottom:20px; }
+  .home-feature .hero { padding:22px;border-radius:20px; }
+  .hero-art { border-radius:16px; }
+  .home-shortcuts button { min-height:96px; }
+  .card { border-radius:14px!important; }
+  .player { background:rgba(17,21,28,.97);border-radius:19px; }
+  .mobile-tabs { background:rgba(15,19,25,.96); }
+  .mobile-tabs button.active { color:var(--accent); }
+  .mobile-tabs button.active::after { background:var(--accent); }
+}
+@media(prefers-reduced-motion:reduce) { *,*:before,*:after { animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important; } }
