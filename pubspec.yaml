@@ -1,8 +1,8 @@
 name: musify
-description: Music Streaming app made in Flutter!
-homepage: https://github.com/gokadzev/Musify
-repository: https://github.com/gokadzev/Musify
-issue_tracker: https://github.com/gokadzev/Musify/issues
+description: Zonic music player for Android, TV, web, and desktop.
+homepage: https://github.com/imcomfyaaaaaa/zonic-music
+repository: https://github.com/imcomfyaaaaaa/zonic-music
+issue_tracker: https://github.com/imcomfyaaaaaa/zonic-music/issues
 
 publish_to: 'none'
 version: 0.2.0+2
@@ -59,12 +59,14 @@ flutter:
   assets:
     - web-app/dist/
     - web-app/dist/src/
+    - web-app/dist/src/ui/
+    - web-app/dist/brand/
     - web-app/dist/src/ai/
     - web-app/dist/src/ai/models/minilm/
     - web-app/dist/src/ai/models/minilm/onnx/
     - web-app/dist/src/ai/runtime/
     - assets/licenses/
-    - assets/icons/musify_icon.png
+    - assets/icons/zonic_icon.png
 
   fonts:
     - family: paytoneOne

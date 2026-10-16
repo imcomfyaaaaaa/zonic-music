@@ -2,14 +2,14 @@ import { cp, mkdir, copyFile, rename, writeFile, readFile } from 'node:fs/promis
 import './build.mjs';
 if (process.platform !== 'linux' || process.arch !== 'x64') throw new Error('This packaging script requires Linux x64.');
 const root = new URL('../', import.meta.url);
-const out = new URL('release/Grove-linux-x64/', root);
+const out = new URL('release/Zonic-linux-x64/', root);
 await mkdir(out, { recursive: true });
 await cp(new URL('node_modules/electron/dist/', root), out, { recursive: true });
-await rename(new URL('electron', out), new URL('grove', out));
+await rename(new URL('electron', out), new URL('zonic', out));
 const app = new URL('resources/app/', out);
 await mkdir(app, { recursive: true });
 for (const folder of ['desktop', 'dist', 'scripts', 'engine/build']) await cp(new URL(folder, root), new URL(folder, app), { recursive: true });
 const pkg = JSON.parse(await readFile(new URL('package.json', root), 'utf8'));
-await writeFile(new URL('package.json', app), JSON.stringify({ name: 'grove-music', productName: 'Grove', version: pkg.version, main: 'desktop/main.cjs', license: 'GPL-3.0-or-later' }, null, 2));
+await writeFile(new URL('package.json', app), JSON.stringify({ name: 'zonic-music', productName: 'Zonic', version: pkg.version, main: 'desktop/main.cjs', license: 'GPL-3.0-or-later' }, null, 2));
 await copyFile(new URL('../LICENSE', root), new URL('LICENSE', app));
-console.log(`Linux test build: ${new URL('grove', out).pathname}`);
+console.log(`Linux test build: ${new URL('zonic', out).pathname}`);

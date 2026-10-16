@@ -1,147 +1,83 @@
-# Zonic Music
+<div align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="web-app/brand/zonic-wordmark-on-dark.png">
+    <img src="web-app/brand/zonic-wordmark-on-light.png" alt="Zonic" width="430">
+  </picture>
 
-Zonic is a music app built on Musify with a shared web interface for desktop, Android, and Android TV. The interface uses violet and coral glass surfaces, a listening queue drawer, and an expanded player.
+  <p><strong>Your music, your space.</strong></p>
+  <p>A fast, open-source music player for Android, Android TV, the web, and desktop.</p>
 
-The app includes YouTube music search and playback, local music, Radio Browser stations, playlists and YouTube playlist syncing, on-device Smart Shuffle, and TV controls from a phone.
+  [![Latest release](https://img.shields.io/github/v/release/imcomfyaaaaaa/zonic-music?style=for-the-badge&color=8e80ff)](https://github.com/imcomfyaaaaaa/zonic-music/releases/latest)
+  [![Build](https://img.shields.io/github/actions/workflow/status/imcomfyaaaaaa/zonic-music/release.yml?style=for-the-badge&label=build)](https://github.com/imcomfyaaaaaa/zonic-music/actions)
+  [![License](https://img.shields.io/github/license/imcomfyaaaaaa/zonic-music?style=for-the-badge&color=ff6b81)](LICENSE)
+</div>
 
-- UI source: [`web-app/index.html`](web-app/index.html), [`web-app/src/`](web-app/src/), and [`web-app/brand/`](web-app/brand/).
-- Native Android shell: [`lib/grove_main.dart`](lib/grove_main.dart) and [`lib/grove/`](lib/grove/).
-- Shared music engine: [`packages/grove_source_engine/`](packages/grove_source_engine/).
-- Development and build instructions: [`web-app/README.md`](web-app/README.md).
+## About Zonic
 
-To start development after installing Node.js, Flutter/Dart, and the project dependencies:
+Zonic brings streaming, local music, radio, playlists, synchronized lyrics, and high-quality native playback into one consistent interface. The same TypeScript UI adapts across phones, desktops, cars, and ten-foot TV screens, while the Android app uses a native Flutter audio engine for background playback and media controls.
 
-```sh
+## Features
+
+- Music-only search with live suggestions
+- YouTube music and playlist importing
+- Editable Zonic playlists and read-only linked playlists
+- Local audio imports and offline downloads
+- High-resolution album and artist artwork
+- Synced, scrolling lyrics
+- Native Android background playback and media notification
+- Audio normalization, quality choices, and a five-band equalizer
+- Smart Shuffle, queue controls, listening history, and recaps
+- Radio Browser stations and favorites
+- Android TV interface with secure five-digit Wi-Fi phone controls
+- Automatic Android Auto / car layout
+- Firebase accounts with private pairing profiles
+- Desktop, responsive web, and 21 interface languages
+- No ads and no subscription
+
+## Download
+
+Download the latest Android build from [Zonic Releases](https://github.com/imcomfyaaaaaa/zonic-music/releases/latest).
+
+> Zonic is under active development. Back up important playlists before installing development builds.
+
+## Development
+
+Requirements: Node.js, Flutter, and the Android SDK.
+
+```bash
 flutter pub get
 cd web-app
 npm ci
 npm run dev
 ```
 
-Open `http://127.0.0.1:4317/`. For music engine setup and platform requirements, see the development instructions linked above. Internal filenames and commands retain the earlier Grove name for compatibility.
+Open `http://127.0.0.1:4317/` on the computer or use the computer's LAN address on a phone connected to the same Wi-Fi.
 
-Zonic derives from [Musify](https://github.com/gokadzev/Musify) and is licensed under GPLv3 or later. Original project information and attribution follow.
+Build the Android APK:
 
----
-
-<div align="center">
-<img src="https://github.com/gokadzev/Musify/raw/master/.github/assets/Musify-banner.png" width="100%">
-
-# Musify
-
-Unlock the full potential of music: Stream effortlessly with one app!
-
-[![Stars](https://img.shields.io/github/stars/gokadzev/Musify?style=flat-square&color=D3BEAB)](https://github.com/gokadzev/Musify/stargazers)
-[![Forks](https://img.shields.io/github/forks/gokadzev/Musify?style=flat-square&color=D3BEAB)](https://github.com/gokadzev/Musify/fork)
-[![Downloads](https://img.shields.io/github/downloads/gokadzev/Musify/total?style=flat-square&color=D3BEAB)](https://github.com/gokadzev/Musify/releases)
-[![GitHub release](https://img.shields.io/github/v/release/gokadzev/Musify?color=D3BEAB)](https://github.com/gokadzev/Musify/releases)
-[![License](https://img.shields.io/github/license/gokadzev/Musify?color=D3BEAB)](LICENSE)
-
----
-
-<a href="https://ko-fi.com/gokadzev" target="_blank" title="ko-fi">
-  <img src="https://github.com/user-attachments/assets/1c204507-d124-4b34-878b-96c39c9bb3f8"  alt="ko-fi badge" style="width: 150px;">
-</a>
-
-
-
----
-
-## Features
-
-<center>
-
-Online song search with suggestions <br/>
-Offline listening support <br/>
-Import & export your data and never lose it <br/>
-Add custom playlists with link <br/>
-Listening Recaps <br/>
-Spotify playlist import <br/>
-Radio stations <br/>
-Optimized sound experience <br/>
-SponsorBlock support <br/>
-Lyrics support <br/>
-No ads <br/>
-No subscriptions <br/>
-Built-in updater <br/>
-Built-in equalizer with presets <br/>
-21 supported languages <br/>
-Material UI & accent colors & dynamic colors (Android 12+) <br/>
-
-</center>
-
-
----
-
-## Screenshots
-
-| ![Screenshot 1](https://raw.githubusercontent.com/gokadzev/Musify/master/fastlane/metadata/android/en-US/images/phoneScreenshots/01.jpg) | ![Screenshot 2](https://raw.githubusercontent.com/gokadzev/Musify/master/fastlane/metadata/android/en-US/images/phoneScreenshots/02.jpg) | ![Screenshot 3](https://raw.githubusercontent.com/gokadzev/Musify/master/fastlane/metadata/android/en-US/images/phoneScreenshots/03.jpg) | ![Screenshot 4](https://raw.githubusercontent.com/gokadzev/Musify/master/fastlane/metadata/android/en-US/images/phoneScreenshots/04.jpg) |
-|----------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------|
-
-
----
-
-## Download
-
-
-[<img src="https://github.com/gokadzev/Musify/raw/master/.github/assets/get-it-on-github.png" alt="Get it on Github" height="80">](https://github.com/gokadzev/Musify/releases/latest)
-[<img src="https://fdroid.gitlab.io/artwork/badge/get-it-on.png" alt="Get it on Fdroid" height="80">](https://f-droid.org/packages/com.gokadzev.musify.fdroid)
-
-
----
-
-## Contributors
-
-Special thanks to all contributors for their time and effort.
-
-<a href="https://github.com/gokadzev/Musify/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=gokadzev/Musify" alt="Contributors"/>
-</a>
-
-
----
-
-## Contribute
-
-Contributions are always welcome. Please read our [contributing guidelines](https://github.com/gokadzev/Musify/blob/master/CONTRIBUTING.md) before contributing.
-
----
-
-## F.A.Q
-
-You can see frequently asked questions and their answers [here](https://github.com/gokadzev/Musify/discussions/728).
-
----
-
-## Credits
-
-[Musify](https://github.com/Harsh-23/Musify) - Original inspiration for the concept and name. It is now completely reimplemented with new design and branding.
-
-
----
-
-## License
-
-```
-Copyright © 2026 Valeri Gokadze
-
-Musify is free software licensed under GPL v3.0. You may use, modify, and distribute
-this software freely, but must keep the source code open and publicly available, retain
-all copyright notices, disclose all changes made, and use the same GPL v3.0 license.
-
-Prohibited: Closed-source distributions or commercial redistribution of modified versions.
+```bash
+cd web-app
+npm run android:build
 ```
 
-See the [GNU General Public License](https://github.com/gokadzev/Musify/blob/master/LICENSE) for full details.
+The APK is written to `build/app/outputs/flutter-apk/app-github-debug.apk`.
 
----
+## Project layout
 
-## Disclaimer
+- `web-app/src/` — Zonic TypeScript/React interface and playback controller
+- `lib/grove_main.dart` — native Android WebView shell
+- `lib/grove/` — native playback, downloads, TV remote, and file integration
+- `packages/grove_source_engine/` — shared music-source engine
+- `android/` — production Android project
 
-```
-Musify and its contributors do not host, own, or distribute any copyrighted audio content.
-The app provides access to content through plugins and external sources. All trademarks, songs, audio files, and related content remain the property of their respective owners and are protected by applicable copyright laws.
-Included plugins are provided for interoperability and educational purposes only. Users are solely responsible for ensuring that their use of the app complies with local laws, copyright regulations, and the terms of service of the respective content providers.
-The developers of Musify do not encourage or endorse copyright infringement and assume no liability for misuse of the software or third-party plugins.
-```
----
+## Contributing
+
+Bug reports and feature requests are welcome through [GitHub Issues](https://github.com/imcomfyaaaaaa/zonic-music/issues). See [CONTRIBUTING.md](CONTRIBUTING.md) before submitting code.
+
+## Credits and license
+
+Zonic is a GPLv3-or-later derivative of [Musify](https://github.com/gokadzev/Musify). Upstream copyright notices are retained in the source and Git history as required by the license. Zonic's interface, branding, cross-platform shell, TV controls, account integration, and related changes are maintained in this repository.
+
+Zonic does not host or distribute copyrighted music. Content is provided by user files and third-party sources; users are responsible for following applicable laws and service terms.
+
+See [LICENSE](LICENSE) for the complete GNU General Public License.

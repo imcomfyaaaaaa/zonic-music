@@ -1,4 +1,4 @@
-name: Grove platform compatibility
+name: Zonic platform compatibility
 on:
   workflow_dispatch:
 permissions:
@@ -35,8 +35,8 @@ jobs:
         working-directory: web-app
       - uses: actions/upload-artifact@v4
         with:
-          name: Grove-${{ matrix.runner }}
-          path: web-app/release/Grove-*
+          name: Zonic-${{ matrix.runner }}
+          path: web-app/release/Zonic-*
   android:
     runs-on: ubuntu-24.04
     steps:
@@ -60,5 +60,5 @@ jobs:
       - run: flutter build apk --debug --flavor github --target lib/grove_main.dart
       - uses: actions/upload-artifact@v4
         with:
-          name: Grove-Android-TV-debug
+          name: Zonic-Android-TV-debug
           path: build/app/outputs/flutter-apk/app-github-debug.apk

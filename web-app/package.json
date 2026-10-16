@@ -1,11 +1,12 @@
 {
-  "name": "grove-music",
+  "name": "zonic-music",
   "version": "0.2.0",
   "private": true,
   "type": "module",
   "license": "GPL-3.0-or-later",
   "main": "desktop/main.cjs",
   "scripts": {
+    "typecheck": "tsc --noEmit",
     "dev": "node scripts/server.mjs",
     "ai:bundle": "node scripts/bundle-ai.mjs",
     "engine": "dart run engine/bin/server.dart",
@@ -16,19 +17,21 @@
     "package:linux": "node scripts/package-linux.mjs",
     "package:desktop": "node scripts/package-desktop.mjs",
     "desktop": "npm run build && electron .",
-    "android:sync": "npm run build && cap sync android",
     "android:build": "node scripts/build-android.mjs"
   },
   "devDependencies": {
-    "@capacitor/cli": "^8.4.3",
     "@electron/packager": "^20.3.0",
     "@playwright/test": "^1.64.1",
-    "electron": "^44.7.2"
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "electron": "^44.7.2",
+    "esbuild": "^0.28.2",
+    "typescript": "^7.0.2"
   },
   "dependencies": {
-    "@capacitor/android": "^8.5.3",
-    "@capacitor/core": "^8.5.3",
     "fflate": "^0.8.3",
-    "hls.js": "^1.7.3"
+    "hls.js": "^1.7.3",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
   }
 }
