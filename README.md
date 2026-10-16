@@ -1,15 +1,15 @@
 <div align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="web-app/brand/zonic-wordmark-on-dark.png">
-    <img src="web-app/brand/zonic-wordmark-on-light.png" alt="Zonic" width="430">
+    <source media="(prefers-color-scheme: dark)" srcset="web-app/brand/zonic-wordmark-on-dark.svg">
+    <img src="web-app/brand/zonic-wordmark-on-light.svg" alt="Zonic" width="430">
   </picture>
 
   <p><strong>Your music, your space.</strong></p>
   <p>A fast, open-source music player for Android, Android TV, the web, and desktop.</p>
 
-  [![Latest release](https://img.shields.io/github/v/release/imcomfyaaaaaa/zonic-music?style=for-the-badge&color=8e80ff)](https://github.com/imcomfyaaaaaa/zonic-music/releases/latest)
-  [![Build](https://img.shields.io/github/actions/workflow/status/imcomfyaaaaaa/zonic-music/release.yml?style=for-the-badge&label=build)](https://github.com/imcomfyaaaaaa/zonic-music/actions)
-  [![License](https://img.shields.io/github/license/imcomfyaaaaaa/zonic-music?style=for-the-badge&color=ff6b81)](LICENSE)
+  [![Release v0.2.0](https://img.shields.io/badge/release-v0.2.0-8e80ff?style=for-the-badge)](https://github.com/imcomfyaaaaaa/zonic-music/releases/tag/v0.2.0)
+  [![Download Android APK](https://img.shields.io/badge/Android-download_APK-ae9cff?style=for-the-badge&logo=android&logoColor=111111)](https://github.com/imcomfyaaaaaa/zonic-music/releases/latest)
+  [![License GPLv3](https://img.shields.io/badge/license-GPLv3-ff6b81?style=for-the-badge)](LICENSE)
 </div>
 
 ## About Zonic
