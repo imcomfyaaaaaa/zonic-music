@@ -1206,8 +1206,11 @@ class _NativePlaylistPageState extends State<_NativePlaylistPage> {
                       itemBuilder: (_, index) => _SongTile(
                         song: visible[index],
                         onTap: () => musify.audioHandler.playBrowserPlaylist(
-                          visible,
-                          songIndex: index,
+                          // Keep the complete playlist as the queue—even if
+                          // the user found the song through the in-playlist
+                          // search box—then begin at the tapped song.
+                          songs,
+                          songIndex: songs.indexOf(visible[index]),
                         ),
                       ),
                     ),
