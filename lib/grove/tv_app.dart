@@ -87,9 +87,13 @@ class _TvHomeState extends State<_TvHome> {
   List<Map> get playlists => List<Map>.from(userCustomPlaylists.value);
   List<Map> get liked => List<Map>.from(userLikedSongsList.value);
 
-  Future<void> _playSongs(List<Map> songs) async {
-    if (songs.isEmpty) return;
-    await musify.audioHandler.playBrowserPlaylist(songs, songIndex: 0);
+  void _openPlaylist(String title, List<Map> songs, {String? artwork}) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) =>
+            _TvPlaylistPage(title: title, songs: songs, artwork: artwork),
+      ),
+    );
   }
 
   @override
@@ -178,13 +182,16 @@ class _TvHomeState extends State<_TvHome> {
             Icons.favorite_rounded,
             'Liked Songs',
             '${liked.length} songs',
-            () => setState(() => section = 1),
+            () => _openPlaylist('Liked Songs', liked),
           ),
           _quickAction(
             Icons.download_done_rounded,
             'Downloads',
             '${userOfflineSongs.value.length} songs',
-            () => setState(() => section = 1),
+            () => _openPlaylist(
+              'Downloads',
+              List<Map>.from(userOfflineSongs.value),
+            ),
           ),
           _quickAction(
             Icons.search_rounded,
@@ -216,21 +223,27 @@ class _TvHomeState extends State<_TvHome> {
           title: 'Liked Songs',
           subtitle: '${liked.length} songs',
           icon: Icons.favorite_rounded,
-          onPressed: () => _playSongs(liked),
+          onPressed: () => _openPlaylist('Liked Songs', liked),
         ),
       if (userOfflineSongs.value.isNotEmpty)
         _LibraryTile(
           title: 'Downloads',
           subtitle: '${userOfflineSongs.value.length} songs available offline',
           icon: Icons.download_done_rounded,
-          onPressed: () => _playSongs(List<Map>.from(userOfflineSongs.value)),
+          onPressed: () => _openPlaylist(
+            'Downloads',
+            List<Map>.from(userOfflineSongs.value),
+          ),
         ),
       if (userRecentlyPlayed.value.isNotEmpty)
         _LibraryTile(
           title: 'Recently played',
           subtitle: '${userRecentlyPlayed.value.length} songs',
           icon: Icons.history_rounded,
-          onPressed: () => _playSongs(List<Map>.from(userRecentlyPlayed.value)),
+          onPressed: () => _openPlaylist(
+            'Recently played',
+            List<Map>.from(userRecentlyPlayed.value),
+          ),
         ),
       ...playlists.map((playlist) {
         final songs = List<Map>.from(playlist['list'] as List? ?? const []);
@@ -238,7 +251,11 @@ class _TvHomeState extends State<_TvHome> {
           title: playlist['title']?.toString() ?? 'Playlist',
           subtitle: '${songs.length} songs',
           artwork: zonicArtworkUrl(playlist),
-          onPressed: () => _playSongs(songs),
+          onPressed: () => _openPlaylist(
+            playlist['title']?.toString() ?? 'Playlist',
+            songs,
+            artwork: zonicArtworkUrl(playlist),
+          ),
         );
       }),
     ],
@@ -860,7 +877,11 @@ class _TvHomeState extends State<_TvHome> {
             title: playlist['title']?.toString() ?? 'Playlist',
             subtitle: '${songs.length} songs',
             artwork: zonicArtworkUrl(playlist),
-            onPressed: () => _playSongs(songs),
+            onPressed: () => _openPlaylist(
+              playlist['title']?.toString() ?? 'Playlist',
+              songs,
+              artwork: zonicArtworkUrl(playlist),
+            ),
           );
         },
       ),
@@ -951,6 +972,206 @@ class _LibraryTile extends StatelessWidget {
           ),
           const Icon(Icons.play_arrow_rounded, size: 34),
         ],
+      ),
+    ),
+  );
+}
+
+/// A full, remote-friendly playlist view. It deliberately avoids dense phone
+/// controls: every important action has a large focusable target.
+class _TvPlaylistPage extends StatelessWidget {
+  const _TvPlaylistPage({
+    required this.title,
+    required this.songs,
+    this.artwork,
+  });
+
+  final String title;
+  final List<Map> songs;
+  final String? artwork;
+
+  Future<void> _play(int index) =>
+      musify.audioHandler.playBrowserPlaylist(songs, songIndex: index);
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    body: SafeArea(
+      child: FocusTraversalGroup(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(56, 28, 56, 70),
+          children: [
+            Row(
+              children: [
+                IconButton.filled(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.arrow_back_rounded),
+                ),
+                const SizedBox(width: 22),
+                ZonicArtwork(url: artwork, size: 112, radius: 18),
+                const SizedBox(width: 24),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 38,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        '${songs.length} songs',
+                        style: const TextStyle(fontSize: 20, color: zonicMuted),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 28),
+            Wrap(
+              spacing: 16,
+              runSpacing: 12,
+              children: [
+                ZonicSurfaceButton(
+                  autofocus: true,
+                  selected: true,
+                  onPressed: songs.isEmpty ? () {} : () => unawaited(_play(0)),
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.play_arrow_rounded),
+                        SizedBox(width: 8),
+                        Text('Play', style: TextStyle(fontSize: 20)),
+                      ],
+                    ),
+                  ),
+                ),
+                ZonicSurfaceButton(
+                  onPressed: songs.isEmpty
+                      ? () {}
+                      : () {
+                          final shuffled = List<Map>.from(songs)..shuffle();
+                          unawaited(
+                            musify.audioHandler.playBrowserPlaylist(
+                              shuffled,
+                              songIndex: 0,
+                            ),
+                          );
+                        },
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.shuffle_rounded),
+                        SizedBox(width: 8),
+                        Text('Shuffle', style: TextStyle(fontSize: 20)),
+                      ],
+                    ),
+                  ),
+                ),
+                ZonicSurfaceButton(
+                  onPressed: songs.isEmpty
+                      ? () {}
+                      : () async {
+                          for (final song in songs) {
+                            await makeSongOffline(song);
+                          }
+                          if (context.mounted)
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Playlist download started.'),
+                              ),
+                            );
+                        },
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.download_rounded),
+                        SizedBox(width: 8),
+                        Text('Download', style: TextStyle(fontSize: 20)),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 30),
+            if (songs.isEmpty)
+              const Padding(
+                padding: EdgeInsets.all(48),
+                child: Center(
+                  child: Text(
+                    'No songs in this playlist.',
+                    style: TextStyle(fontSize: 22, color: zonicMuted),
+                  ),
+                ),
+              )
+            else
+              ...songs.asMap().entries.map((entry) {
+                final song = entry.value;
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: ZonicSurfaceButton(
+                    onPressed: () => unawaited(_play(entry.key)),
+                    child: Row(
+                      children: [
+                        SizedBox(
+                          width: 34,
+                          child: Text(
+                            '${entry.key + 1}',
+                            style: const TextStyle(
+                              color: zonicMuted,
+                              fontSize: 17,
+                            ),
+                          ),
+                        ),
+                        ZonicArtwork(
+                          url: zonicArtworkUrl(song),
+                          size: 60,
+                          radius: 10,
+                        ),
+                        const SizedBox(width: 18),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                song['title']?.toString() ?? 'Song',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 21,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                song['artist']?.toString() ?? '',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(color: zonicMuted),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Icon(Icons.play_arrow_rounded, size: 32),
+                      ],
+                    ),
+                  ),
+                );
+              }),
+          ],
+        ),
       ),
     ),
   );
