@@ -97,10 +97,33 @@ class AndroidAutoBrowser {
     return id == null || id.isEmpty ? null : id;
   }
 
-  List<Map> _browsablePlaylists() => [
+  List<Map> _localBrowsablePlaylists() => [
     ...getUserCustomPlaylists(),
     ...getLikedPlaylistItems(),
   ];
+
+  /// Imported YouTube playlists are stored by id and resolved lazily. Android
+  /// Auto must receive them in the browser tree too, otherwise they disappear
+  /// from the car even though they exist in the phone library.
+  Future<List<Map>> _browsablePlaylists() async {
+    final playlists = <Map>[..._localBrowsablePlaylists()];
+    try {
+      final linked = await getUserPlaylists().timeout(_browserFetchTimeout);
+      for (final playlist in linked.whereType<Map>()) {
+        final id = _playlistIdOf(playlist);
+        if (id != null && !playlists.any((item) => _playlistIdOf(item) == id)) {
+          playlists.add(playlist);
+        }
+      }
+    } catch (error, stackTrace) {
+      _host.logBrowserError(
+        'Could not load linked playlists for Android Auto',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+    return playlists;
+  }
 
   MediaItem _systemMediaItem(
     Map<String, dynamic> song,
@@ -213,13 +236,17 @@ class AndroidAutoBrowser {
       title: playlist['title']?.toString() ?? 'Playlist',
       playable: false,
       artUri: image == null || image.isEmpty ? null : Uri.tryParse(image),
-      extras: const {'isBrowsable': true},
+      extras: const {
+        'isBrowsable': true,
+        AndroidContentStyle.browsableHintKey:
+            AndroidContentStyle.gridItemHintValue,
+      },
     );
   }
 
-  List<MediaItem> _playlistChildren() {
+  Future<List<MediaItem>> _playlistChildren() async {
     final items = <MediaItem>[];
-    for (final playlist in _browsablePlaylists()) {
+    for (final playlist in await _browsablePlaylists()) {
       final id = _playlistIdOf(playlist);
       if (id != null) items.add(_playlistMediaItem(playlist, id));
     }
@@ -227,12 +254,14 @@ class AndroidAutoBrowser {
   }
 
   Future<List<Map>> _songsForPlaylist(String source, String id) async {
-    final playlist = _browsablePlaylists().firstWhere(
+    final playlist = _localBrowsablePlaylists().firstWhere(
       (playlist) =>
           _playlistIdOf(playlist) == id && _playlistSource(playlist) == source,
       orElse: () => const {},
     );
-    if (playlist.isEmpty) return const [];
+    // Linked YouTube playlists do not keep their song list locally. Fetching
+    // them only after the driver opens the playlist keeps Auto startup quick.
+    if (playlist.isEmpty && source != 'user-youtube') return const [];
 
     final inline = playlist['list'];
     if (inline is List && inline.isNotEmpty) {
@@ -314,7 +343,7 @@ class AndroidAutoBrowser {
     }
 
     if (parentMediaId == _rootPlaylists) {
-      final playlists = _playlistChildren();
+      final playlists = await _playlistChildren();
       return playlists.isEmpty
           ? _emptyCategory(parentMediaId, _emptyCategoryMessage(parentMediaId)!)
           : playlists;
@@ -352,6 +381,7 @@ class AndroidAutoBrowser {
     watch(userOfflineSongs, const [_rootOffline]);
     watch(userRecentlyPlayed, const [_rootRecent, AudioService.recentRootId]);
     watch(userCustomPlaylists, const [_rootPlaylists]);
+    watch(userPlaylists, const [_rootPlaylists]);
     watch(userLikedPlaylists, const [_rootPlaylists]);
     watch(userPlaylistFolders, const [_rootPlaylists]);
 
