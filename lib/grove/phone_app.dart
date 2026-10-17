@@ -1525,9 +1525,10 @@ class _FullPlayer extends StatelessWidget {
         body: SafeArea(
           child: Padding(
             padding: const EdgeInsets.all(28),
-            child: Column(
+            child: ListView(
+              physics: const BouncingScrollPhysics(),
               children: [
-                const Spacer(),
+                const SizedBox(height: 16),
                 LayoutBuilder(
                   builder: (_, constraints) {
                     final size = constraints.maxWidth.clamp(220.0, 380.0);
@@ -1692,7 +1693,11 @@ class _FullPlayer extends StatelessWidget {
                     ),
                   ],
                 ),
-                const Spacer(),
+                if (song != null) ...[
+                  const SizedBox(height: 24),
+                  _PlayerLyricsCard(song: song),
+                ],
+                const SizedBox(height: 32),
               ],
             ),
           ),
@@ -1762,6 +1767,193 @@ class _TimedLyric {
   final Duration time;
   final String text;
   final bool estimated;
+}
+
+Future<(List<_TimedLyric>, bool)> _loadTimedLyrics(Map song) async {
+  final artist = song['artist']?.toString();
+  final title = song['title']?.toString() ?? '';
+  String? raw;
+  var hasSyncedTiming = false;
+  if (artist != null && artist.trim().isNotEmpty && title.trim().isNotEmpty) {
+    try {
+      final duration = musify.audioHandler.audioPlayer.duration?.inSeconds;
+      final response = await http
+          .get(
+            Uri.https('lrclib.net', '/api/get', {
+              'artist_name': artist.length > 200
+                  ? artist.substring(0, 200)
+                  : artist,
+              'track_name': title.length > 300
+                  ? title.substring(0, 300)
+                  : title,
+              if (duration != null && duration > 0) 'duration': '$duration',
+            }),
+          )
+          .timeout(const Duration(seconds: 7));
+      final body = response.statusCode == 200
+          ? jsonDecode(response.body)
+          : null;
+      if (body is Map && body['syncedLyrics'] is String) {
+        raw = body['syncedLyrics'] as String;
+        hasSyncedTiming = true;
+      }
+    } catch (_) {}
+  }
+  raw ??= await getSongLyrics(artist, title);
+  final parsed = _parseTimedLyrics(
+    raw,
+    musify.audioHandler.audioPlayer.duration,
+  );
+  return (parsed.$1, parsed.$2 || !hasSyncedTiming);
+}
+
+(List<_TimedLyric>, bool) _parseTimedLyrics(String? raw, Duration? duration) {
+  final source = (raw ?? '').split(RegExp(r'\r?\n'));
+  final timed = <_TimedLyric>[];
+  final stamp = RegExp(r'\[(\d{1,2}):(\d{2}(?:\.\d+)?)\]');
+  for (final row in source) {
+    final matches = stamp.allMatches(row).toList();
+    final text = row.replaceAll(RegExp(r'\[[^\]]+\]'), '').trim();
+    if (text.isEmpty || matches.isEmpty) continue;
+    for (final match in matches) {
+      final minutes = int.tryParse(match.group(1) ?? '') ?? 0;
+      final seconds = double.tryParse(match.group(2) ?? '') ?? 0;
+      timed.add(
+        _TimedLyric(
+          Duration(milliseconds: ((minutes * 60 + seconds) * 1000).round()),
+          text,
+        ),
+      );
+    }
+  }
+  if (timed.isNotEmpty) {
+    timed.sort((a, b) => a.time.compareTo(b.time));
+    return (timed, false);
+  }
+  final plain = source
+      .map((line) => line.trim())
+      .where((line) => line.isNotEmpty && !line.startsWith('©'))
+      .toList();
+  final total = (duration?.inMilliseconds ?? 180000).clamp(20000, 3600000);
+  final start = total < 200000 ? (total * .06).round() : 12000;
+  final usable =
+      (total - start - (total < 250000 ? (total * .04).round() : 10000)).clamp(
+        1000,
+        total,
+      );
+  return (
+    List<_TimedLyric>.generate(
+      plain.length,
+      (index) => _TimedLyric(
+        Duration(
+          milliseconds:
+              start +
+              (usable * index / (plain.length <= 1 ? 1 : plain.length - 1))
+                  .round(),
+        ),
+        plain[index],
+        estimated: true,
+      ),
+    ),
+    true,
+  );
+}
+
+class _PlayerLyricsCard extends StatefulWidget {
+  const _PlayerLyricsCard({required this.song});
+  final Map song;
+  @override
+  State<_PlayerLyricsCard> createState() => _PlayerLyricsCardState();
+}
+
+class _PlayerLyricsCardState extends State<_PlayerLyricsCard> {
+  late Future<(List<_TimedLyric>, bool)> lyrics = _loadTimedLyrics(widget.song);
+
+  int _activeIndex(List<_TimedLyric> lines, Duration position) {
+    var active = -1;
+    for (var index = 0; index < lines.length; index++) {
+      if (lines[index].time <= position + const Duration(milliseconds: 150))
+        active = index;
+      else
+        break;
+    }
+    return active;
+  }
+
+  @override
+  Widget build(
+    BuildContext context,
+  ) => FutureBuilder<(List<_TimedLyric>, bool)>(
+    future: lyrics,
+    builder: (context, snapshot) {
+      final lines = snapshot.data?.$1 ?? const <_TimedLyric>[];
+      if (snapshot.connectionState != ConnectionState.done || lines.isEmpty)
+        return const SizedBox.shrink();
+      return Container(
+        padding: const EdgeInsets.fromLTRB(18, 16, 18, 12),
+        decoration: BoxDecoration(
+          color: zonicSurface,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: const Color(0xff37333f)),
+        ),
+        child: StreamBuilder<Duration>(
+          stream: musify.audioHandler.audioPlayer.positionStream,
+          builder: (_, position) {
+            final active = _activeIndex(lines, position.data ?? Duration.zero);
+            final first = (active < 0 ? 0 : active).clamp(0, lines.length - 1);
+            final preview = lines.skip(first).take(3).toList();
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.lyrics_rounded, color: zonicAccent),
+                    const SizedBox(width: 8),
+                    const Expanded(
+                      child: Text(
+                        'Lyrics',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => _LyricsPage(song: widget.song),
+                        ),
+                      ),
+                      child: const Text('Full screen'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                ...preview.asMap().entries.map(
+                  (entry) => Padding(
+                    padding: const EdgeInsets.only(top: 7),
+                    child: Text(
+                      entry.value.text,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: entry.key == 0 ? 21 : 17,
+                        height: 1.2,
+                        fontWeight: entry.key == 0
+                            ? FontWeight.w800
+                            : FontWeight.w600,
+                        color: entry.key == 0 ? Colors.white : zonicMuted,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      );
+    },
+  );
 }
 
 class _LyricsPage extends StatefulWidget {
