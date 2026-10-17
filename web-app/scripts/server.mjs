@@ -7,7 +7,9 @@ import './build.mjs';
 const engine = startEngine();
 const root = resolve(new URL('../dist', import.meta.url).pathname);
 const types = { '.html': 'text/html', '.ttf': 'font/ttf', '.js': 'text/javascript', '.mjs': 'text/javascript', '.wasm': 'application/wasm', '.onnx': 'application/octet-stream', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.svg': 'image/svg+xml', '.ico': 'image/x-icon' };
-const bindHost = process.env.HOST || '127.0.0.1';
+// Bind on the LAN in development so the same build can be tested on phones
+// and tablets connected to this computer's network.
+const bindHost = process.env.HOST || '0.0.0.0';
 export const server = createServer(async (req, res) => {
   try {
     const port = server.address()?.port;
@@ -27,7 +29,7 @@ export const server = createServer(async (req, res) => {
     const file = resolve(root, '.' + (pathname === '/' ? '/index.html' : pathname));
     if (!file.startsWith(root + sep)) { res.writeHead(403).end(); return; }
     const data = await readFile(file);
-    res.writeHead(200, { 'Content-Type': types[extname(file)] || 'text/plain', 'X-Content-Type-Options': 'nosniff' });
+    res.writeHead(200, { 'Content-Type': types[extname(file)] || 'text/plain', 'X-Content-Type-Options': 'nosniff', 'Cache-Control': 'no-store' });
     res.end(data);
   } catch { res.writeHead(404).end('Not found'); }
 });

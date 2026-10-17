@@ -38,8 +38,7 @@ test('radio browser layout fits a phone', async ({ page }) => {
   await page.route('**/api/radio-browser?*', route => route.fulfill({ contentType: 'application/json', body: JSON.stringify([station]) }));
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/');
-  await page.locator('.mobile-tabs [data-view=browse]').click();
-  await page.getByRole('button', { name: 'All stations' }).click();
+  await page.locator('#content [data-view="radio"]').first().click();
   await expect(page.locator('.radio-tile')).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: '/tmp/grove-radio-phone.png' });

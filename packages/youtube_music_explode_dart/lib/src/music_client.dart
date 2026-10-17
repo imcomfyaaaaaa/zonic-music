@@ -205,7 +205,9 @@ class MusicClient {
         MusicArtist(
           id: id,
           name: name.trim(),
-          thumbnailUrl: _thumbnailUrl(item, 'thumbnail'),
+          thumbnailUrl:
+              _thumbnailUrl(item, 'thumbnail') ??
+              _thumbnailUrl(item, 'thumbnailRenderer'),
         ),
       );
     }
@@ -225,7 +227,10 @@ class MusicClient {
 
     final results = <Video>[];
     final seen = <String>{};
-    for (final item in _findRenderers(root, 'musicResponsiveListItemRenderer')) {
+    for (final item in _findRenderers(
+      root,
+      'musicResponsiveListItemRenderer',
+    )) {
       final videoId = _trackVideoId(item);
       if (videoId == null || !seen.add(videoId)) continue;
       final title = _flexColumnText(item, 0);
@@ -250,7 +255,8 @@ class MusicClient {
     final results = await searchSongs(query);
     final isValidating = expectedArtist != null || expectedTitle != null;
     for (final video in results) {
-      if (expectedArtist != null && !_looselyMatch(video.author, expectedArtist)) {
+      if (expectedArtist != null &&
+          !_looselyMatch(video.author, expectedArtist)) {
         continue;
       }
       if (expectedTitle != null && !_looselyMatch(video.title, expectedTitle)) {
@@ -353,14 +359,18 @@ class MusicClient {
     return MusicArtistProfile(
       id: canonicalId,
       name: name,
-      thumbnailUrl: _thumbnailUrl(header, 'thumbnail'),
+      thumbnailUrl:
+          _thumbnailUrl(header, 'thumbnail') ??
+          _thumbnailUrl(header, 'foregroundThumbnail') ??
+          _thumbnailUrl(header, 'background') ??
+          _thumbnailUrl(header, 'backgroundThumbnail'),
       description: _runsText(header?.getMap('description')),
       monthlyListeners: _runsText(header?.getMap('monthlyListenerCount')),
       topSongs: _parseTopSongs(root, channelId: canonicalId, author: name),
       releases: await _collectDiscography(root),
-      relatedArtists: _collectRelatedArtists(
-        root,
-      ).where((artist) => artist.id != canonicalId).toList(),
+      relatedArtists: _collectRelatedArtists(root)
+          .where((artist) => artist.id != canonicalId)
+          .toList(),
     );
   }
 

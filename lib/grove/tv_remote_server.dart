@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 import 'package:flutter/services.dart';
+import 'package:musify/services/settings_manager.dart';
 
 typedef TvState = Map<String, dynamic> Function();
 typedef TvCommand = Future<void> Function(String command, Map<String, dynamic> data);
@@ -12,7 +13,7 @@ class GroveTvRemoteServer {
   GroveTvRemoteServer._(this.server, this.addresses, this.pin, this.state, this.command);
   final HttpServer server;
   final List<String> addresses;
-  final String pin;
+  String pin;
   final TvState state;
   final TvCommand command;
   final Map<String, DateTime> sessions = {};
@@ -25,15 +26,39 @@ class GroveTvRemoteServer {
     if (addresses.isEmpty) return null;
     final server = await HttpServer.bind(InternetAddress.anyIPv4, 0);
     final random = Random.secure();
-    final remote = GroveTvRemoteServer._(server, addresses, (random.nextInt(900000) + 100000).toString(), state, command);
+    final remote = GroveTvRemoteServer._(server, addresses, (random.nextInt(90000) + 10000).toString(), state, command);
     server.listen((request) => unawaited(remote.handle(request)));
     return remote;
+  }
+
+  void setPin(String value) {
+    if (!RegExp(r'^\d{5}$').hasMatch(value)) throw const FormatException('Pairing code must be five digits');
+    if (pin == value) return;
+    pin = value;
+    sessions.clear();
+    failures.clear();
   }
 
   static bool _privateAddress(String ip) {
     final parts = ip.split('.').map(int.tryParse).toList();
     if (parts.length != 4 || parts.any((p) => p == null || p < 0 || p > 255)) return false;
     return parts[0] == 10 || parts[0] == 192 && parts[1] == 168 || parts[0] == 172 && parts[1]! >= 16 && parts[1]! <= 31;
+  }
+
+  bool get _shuffle {
+    try {
+      return shuffleNotifier.value;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  String get _repeat {
+    try {
+      return repeatNotifier.value.name;
+    } catch (_) {
+      return 'none';
+    }
   }
 
   bool _sameOrigin(HttpRequest request) {
@@ -102,13 +127,14 @@ class GroveTvRemoteServer {
         }
         _json(request, 200, {
           'paused': value['paused'], 'position': value['position'], 'duration': value['duration'], 'volume': value['volume'],
+          'shuffle': _shuffle, 'repeat': _repeat,
           'index': value['index'], 'track': visibleTrack(value['track']),
           'queue': (value['queue'] as List? ?? []).map(visibleTrack).toList(),
         });
       } else if (request.method == 'POST' && path == '/command') {
         final data = await _body(request);
         final name = data['command'];
-        if (name is! String || !{'play', 'pause', 'next', 'previous', 'seek', 'volume', 'queue-play'}.contains(name)) throw const FormatException('Unknown command');
+        if (name is! String || !{'play', 'pause', 'next', 'previous', 'shuffle', 'repeat', 'seek', 'volume', 'queue-play'}.contains(name)) throw const FormatException('Unknown command');
         await command(name, data);
         _json(request, 200, {'ok': true});
       } else {

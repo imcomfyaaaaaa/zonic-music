@@ -269,7 +269,7 @@ class NavigationManager {
                 path: 'license',
                 pageBuilder: (context, state) => _pushPage(
                   child: const LicensePage(
-                    applicationName: 'Musify',
+                    applicationName: 'Zonic',
                     applicationVersion: appVersion,
                   ),
                   state: state,

@@ -20,8 +20,9 @@
  */
 
 import 'package:musify/main.dart' as m;
+import 'package:musify/grove_main.dart' as grove;
 
 void main() async {
   m.isFdroidBuild = true;
-  m.main();
+  await grove.main();
 }

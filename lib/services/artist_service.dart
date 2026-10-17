@@ -643,7 +643,11 @@ String? _extractCountToken(String? value) {
 
 String? normalizeArtistThumbnailUrl(String? value) {
   final thumbnail = value?.trim();
-  if (thumbnail == null || thumbnail.isEmpty) return null;
+  if (thumbnail == null ||
+      thumbnail.isEmpty ||
+      thumbnail.toLowerCase() == 'null') {
+    return null;
+  }
 
   late final String normalized;
   if (thumbnail.startsWith('//')) {
@@ -682,6 +686,32 @@ String _upgradeArtistThumbnailResolution(String thumbnail) {
 
 String normalizeArtistDisplayTitle(String value) =>
     _cleanArtistSearchTerm(value).replaceAll(RegExp(r'\s+'), ' ').trim();
+
+/// Splits a song credit into the individual artists a listener can open.
+///
+/// Artist names themselves may contain punctuation, so this deliberately only
+/// accepts the separators normally used for collaborations in video titles.
+List<String> splitArtistNames(String value) {
+  final cleaned = normalizeArtistDisplayTitle(value);
+  if (cleaned.isEmpty) return const [];
+
+  final names = cleaned
+      .split(
+        RegExp(
+          r'\s+(?:feat\.?|ft\.?|featuring|with|x|&|\+)\s+|\s*,\s*',
+          caseSensitive: false,
+        ),
+      )
+      .map((name) => name.trim())
+      .where((name) => name.isNotEmpty);
+
+  final unique = <String>[];
+  final seen = <String>{};
+  for (final name in names) {
+    if (seen.add(name.toLowerCase())) unique.add(name);
+  }
+  return unique.isEmpty ? [cleaned] : unique;
+}
 
 bool looksUnofficialArtistName(String name) {
   final lowerName = name.toLowerCase();

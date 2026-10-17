@@ -47,9 +47,12 @@ class MusifyAudioHandler extends BaseAudioHandler implements AndroidAutoHost {
       audioPipeline: AudioPipeline(androidAudioEffects: [_androidEqualizer]),
       audioLoadConfiguration: const AudioLoadConfiguration(
         androidLoadControl: AndroidLoadControl(
+          // Keep enough high-quality audio ahead of playback to absorb brief
+          // Wi-Fi/mobile-network stalls. These values affect buffering only;
+          // they do not resample or lower the selected stream quality.
+          minBufferDuration: Duration(seconds: 20),
           maxBufferDuration: Duration(seconds: 60),
-          bufferForPlaybackDuration: Duration(milliseconds: 500),
-          bufferForPlaybackAfterRebufferDuration: Duration(seconds: 3),
+          bufferForPlaybackDuration: Duration(seconds: 2),
         ),
       ),
     );
@@ -168,11 +171,19 @@ class MusifyAudioHandler extends BaseAudioHandler implements AndroidAutoHost {
   int get currentQueueIndex => _currentQueueIndex;
   Future<void> clearGroveQueue() async {
     await stop();
-    _queueList.clear(); _originalQueueList.clear(); _originalQueueEntriesById.clear(); _historyList.clear();
-    _currentQueueIndex = -1; _currentLoadingIndex = -1; _currentLoadingTransitionId = -1;
-    _queueMapStream.add(const []); queue.add(const []); mediaItem.add(null);
+    _queueList.clear();
+    _originalQueueList.clear();
+    _originalQueueEntriesById.clear();
+    _historyList.clear();
+    _currentQueueIndex = -1;
+    _currentLoadingIndex = -1;
+    _currentLoadingTransitionId = -1;
+    _queueMapStream.add(const []);
+    queue.add(const []);
+    mediaItem.add(null);
     _updatePlaybackState(force: true);
   }
+
   bool get _hasCurrentQueueIndex =>
       _currentQueueIndex >= 0 && _currentQueueIndex < _queueList.length;
 
@@ -1578,7 +1589,7 @@ class MusifyAudioHandler extends BaseAudioHandler implements AndroidAutoHost {
 
     await playPlaylistSong(
       playlist: {
-        'title': 'Musify',
+        'title': 'Zonic',
         'source': 'system-recent',
         'list': [normalisedSong],
       },
@@ -1978,7 +1989,8 @@ class MusifyAudioHandler extends BaseAudioHandler implements AndroidAutoHost {
     final directUrl = song['directUrl'];
     if (directUrl is String) {
       final uri = Uri.tryParse(directUrl);
-      if (uri != null && (uri.scheme == 'https' || uri.scheme == 'http')) return directUrl;
+      if (uri != null && (uri.scheme == 'https' || uri.scheme == 'http'))
+        return directUrl;
     }
 
     return fetchSongStreamUrl(song['ytid'], song['isLive'] ?? false);

@@ -29,6 +29,7 @@ import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:musify/extensions/l10n.dart';
 import 'package:musify/main.dart';
+import 'package:musify/services/artist_service.dart';
 import 'package:musify/services/common_services.dart';
 import 'package:musify/services/playlist_download_service.dart';
 import 'package:musify/services/playlists_manager.dart';
@@ -175,6 +176,7 @@ Future<void> _handleSongMenuAction({
   required ValueNotifier<bool> songDownloadStatus,
   VoidCallback? onRemove,
   FutureOr<void> Function()? onRename,
+  FutureOr<void> Function()? onGoToArtist,
 }) async {
   switch (value) {
     case 'play_next':
@@ -186,16 +188,7 @@ Future<void> _handleSongMenuAction({
       );
       break;
     case 'go_to_artist':
-      final artistName = song is Map
-          ? (song['artist']?.toString().trim() ?? '')
-          : '';
-      if (artistName.isEmpty) return;
-      unawaited(
-        context.push(
-          '${NavigationManager.searchPath}/artist/${Uri.encodeComponent(artistName)}',
-          extra: {'title': artistName, 'ytid': artistName},
-        ),
-      );
+      await onGoToArtist?.call();
       break;
     case 'add_to_queue':
       await audioHandler.addToQueue(song);
@@ -473,6 +466,7 @@ class _SongBarState extends State<SongBar> {
                   artist: _songArtist,
                   plays: plays,
                   colorScheme: colorScheme,
+                  onArtistTap: offlineMode.value ? null : _openArtist,
                 ),
               ),
 
@@ -498,6 +492,7 @@ class _SongBarState extends State<SongBar> {
                     songDownloadStatus: _songDownloadStatus,
                     onRemove: widget.onRemove,
                     onRename: () => _handleRenameSong(context),
+                    onGoToArtist: _openArtist,
                   ),
                   itemBuilder: (context) =>
                       _buildMenuItems(context, colorScheme),
@@ -528,6 +523,60 @@ class _SongBarState extends State<SongBar> {
     } else {
       audioHandler.playSong(widget.song);
     }
+  }
+
+  Future<void> _openArtist() async {
+    final artists = splitArtistNames(_songArtist);
+    if (artists.isEmpty || !mounted) return;
+
+    var artistName = artists.first;
+    if (artists.length > 1) {
+      final selected = await showModalBottomSheet<String>(
+        context: context,
+        showDragHandle: true,
+        builder: (sheetContext) => SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
+                child: Text(
+                  context.l10n!.artists,
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+              ),
+              for (final artist in artists)
+                ListTile(
+                  leading: const Icon(FluentIcons.person_24_regular),
+                  title: Text(artist),
+                  onTap: () => Navigator.of(sheetContext).pop(artist),
+                ),
+            ],
+          ),
+        ),
+      );
+      if (selected == null || !mounted) return;
+      artistName = selected;
+    }
+
+    final isSingleCredit = artists.length == 1;
+    final seededArtistId = isSingleCredit
+        ? widget.song['artistId']?.toString().trim()
+        : null;
+    final artistId = (seededArtistId == null || seededArtistId.isEmpty)
+        ? artistName
+        : seededArtistId;
+    unawaited(
+      context.push(
+        NavigationManager.artistPath(context, artistId),
+        extra: {
+          'title': artistName,
+          'ytid': artistId,
+          'sourceSongId': _ytid,
+          'videoAuthor': widget.song['videoAuthor']?.toString(),
+        },
+      ),
+    );
   }
 
   Widget _buildAlbumArt(ColorScheme colorScheme) {
@@ -666,12 +715,14 @@ class _SongInfo extends StatelessWidget {
     required this.artist,
     this.plays,
     required this.colorScheme,
+    this.onArtistTap,
   });
 
   final String title;
   final String artist;
   final String? plays;
   final ColorScheme colorScheme;
+  final VoidCallback? onArtistTap;
 
   @override
   Widget build(BuildContext context) {
@@ -691,13 +742,29 @@ class _SongInfo extends StatelessWidget {
         Row(
           children: [
             Flexible(
-              child: Text(
-                artist,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontWeight: FontWeight.w400,
-                  fontSize: 13,
-                  color: colorScheme.onSurfaceVariant,
+              child: Semantics(
+                button: onArtistTap != null,
+                child: InkWell(
+                  onTap: onArtistTap,
+                  borderRadius: BorderRadius.circular(4),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 2),
+                    child: Text(
+                      artist,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w400,
+                        fontSize: 13,
+                        color: onArtistTap == null
+                            ? colorScheme.onSurfaceVariant
+                            : colorScheme.primary,
+                        decoration: onArtistTap == null
+                            ? null
+                            : TextDecoration.underline,
+                        decorationColor: colorScheme.primary,
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ),

@@ -103,7 +103,7 @@ String offlineSortSetting = Hive.box('settings')
     .get('offlineSortType', defaultValue: OfflineSortType.default_.name);
 
 Color primaryColorSetting = Color(
-  Hive.box('settings').get('accentColor', defaultValue: 0xff91cef4),
+  Hive.box('settings').get('accentColor', defaultValue: 0xff8e80ff),
 );
 
 final shuffleNotifier = ValueNotifier<bool>(

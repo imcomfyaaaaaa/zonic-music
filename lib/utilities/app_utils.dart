@@ -118,8 +118,9 @@ String formatMonthPeriodLabel(Locale locale, String monthKey) {
 }
 
 AudioOnlyStreamInfo? selectAudioOnlyStreamForQuality(
-  List<AudioOnlyStreamInfo> availableSources,
-) {
+  List<AudioOnlyStreamInfo> availableSources, {
+  String? quality,
+}) {
   if (availableSources.isEmpty) return null;
 
   final compatibleSources = _filterCompatibleAudioOnlySources(availableSources);
@@ -129,7 +130,7 @@ AudioOnlyStreamInfo? selectAudioOnlyStreamForQuality(
             : List<AudioOnlyStreamInfo>.from(availableSources))
         ..sort((a, b) => b.bitrate.compareTo(a.bitrate));
 
-  final qualitySetting = audioQualitySetting.value;
+  final qualitySetting = quality ?? audioQualitySetting.value;
 
   if (qualitySetting == 'low') {
     return selectionPool.last;

@@ -29,6 +29,7 @@ import 'package:hive/hive.dart';
 import 'package:http/http.dart' as http;
 import 'package:musify/constants/clients.dart';
 import 'package:musify/main.dart' show logger;
+import 'package:musify/services/artist_service.dart';
 import 'package:musify/services/data_manager.dart';
 import 'package:musify/services/io_service.dart';
 import 'package:musify/services/lyrics_manager.dart';
@@ -41,6 +42,8 @@ import 'package:musify/utilities/map_utils.dart';
 import 'package:youtube_explode_dart/youtube_explode_dart.dart';
 
 List globalSongs = [];
+
+final Map<String, Future<List>> _songSearchesInFlight = {};
 
 ValueNotifier<List> userLikedSongsList = ValueNotifier<List>(
   Hive.box('user').get('likedSongs', defaultValue: []),
@@ -156,18 +159,53 @@ Future<bool> _validateCachedUrl(String songId, String cachedUrl) async {
 }
 
 Future<List> fetchSongsList(String searchQuery) async {
-  try {
-    // If not in cache, perform the search
-    final List<Video> searchResults = await ytClient.search.search(searchQuery);
-    final songsList = searchResults
-        .map((video) => returnSongLayout(0, video))
-        .toList();
+  final query = searchQuery.trim();
+  if (query.isEmpty) return [];
 
-    return songsList;
+  final cacheKey =
+      'search_songs_v2_${base64Url.encode(utf8.encode(query.toLowerCase()))}';
+  final cached = await getData('cache', cacheKey);
+  if (cached is List) return List<dynamic>.from(cached);
+
+  final existing = _songSearchesInFlight[cacheKey];
+  if (existing != null) return existing;
+
+  final search = _fetchAndCacheSongs(query, cacheKey);
+  _songSearchesInFlight[cacheKey] = search;
+  try {
+    return await search;
   } catch (e, stackTrace) {
     logger.log('Error in fetchSongsList', error: e, stackTrace: stackTrace);
     return [];
+  } finally {
+    _songSearchesInFlight.removeWhere((key, _) => key == cacheKey);
   }
+}
+
+Future<List> _fetchAndCacheSongs(String query, String cacheKey) async {
+  // YouTube Music's dedicated Songs shelf is smaller and more relevant than a
+  // general video search. Keep the general search as a compatibility fallback.
+  List<Video> searchResults;
+  try {
+    searchResults = await ytMusicClient.music.searchSongs(query);
+  } catch (e, stackTrace) {
+    logger.log(
+      'YouTube Music song search failed; trying video search',
+      error: e,
+      stackTrace: stackTrace,
+    );
+    searchResults = [];
+  }
+  if (searchResults.isEmpty) {
+    searchResults = await ytClient.search.search(query);
+  }
+  final songs = searchResults
+      .map((video) => returnSongLayout(0, video))
+      .toList();
+  if (songs.isNotEmpty) {
+    unawaited(addOrUpdateData<List>('cache', cacheKey, songs));
+  }
+  return songs;
 }
 
 Future<List> getRecommendedSongs() async {
@@ -647,13 +685,13 @@ _selectedAudioStreams = {};
 
 const _maxSelectedAudioStreams = 50;
 
-String _selectedAudioStreamKey(String songId) =>
-    '${songId}_${audioQualitySetting.value}';
+String _selectedAudioStreamKey(String songId, [String? quality]) =>
+    '${songId}_${quality ?? audioQualitySetting.value}';
 
 /// Returns the stream resolved earlier for a song, unless it is old enough
 /// that its URL may have expired.
-AudioOnlyStreamInfo? _getSelectedAudioStream(String songId) {
-  final key = _selectedAudioStreamKey(songId);
+AudioOnlyStreamInfo? _getSelectedAudioStream(String songId, [String? quality]) {
+  final key = _selectedAudioStreamKey(songId, quality);
   final entry = _selectedAudioStreams[key];
   if (entry == null) return null;
 
@@ -665,12 +703,16 @@ AudioOnlyStreamInfo? _getSelectedAudioStream(String songId) {
   return entry.stream;
 }
 
-void _cacheSelectedAudioStream(String songId, AudioOnlyStreamInfo stream) {
+void _cacheSelectedAudioStream(
+  String songId,
+  AudioOnlyStreamInfo stream, [
+  String? quality,
+]) {
   if (_selectedAudioStreams.length >= _maxSelectedAudioStreams) {
     _selectedAudioStreams.remove(_selectedAudioStreams.keys.first);
   }
 
-  _selectedAudioStreams[_selectedAudioStreamKey(songId)] = (
+  _selectedAudioStreams[_selectedAudioStreamKey(songId, quality)] = (
     stream: stream,
     resolvedAt: DateTime.now(),
   );
@@ -684,14 +726,17 @@ Future<void> invalidateSongStreamCache(String songId) async {
 }
 
 /// Fetches the best available audio stream for a song.
-Future<AudioOnlyStreamInfo?> fetchBestAudioStream(String? songId) async {
+Future<AudioOnlyStreamInfo?> fetchBestAudioStream(
+  String? songId, {
+  String? quality,
+}) async {
   try {
     if (songId == null || songId.isEmpty) {
       logger.log('fetchBestAudioStream: songId is null or empty');
       return null;
     }
 
-    final cachedStream = _getSelectedAudioStream(songId);
+    final cachedStream = _getSelectedAudioStream(songId, quality);
     if (cachedStream != null) return cachedStream;
 
     final manifest = await _fetchStreamManifest(songId);
@@ -701,7 +746,10 @@ Future<AudioOnlyStreamInfo?> fetchBestAudioStream(String? songId) async {
       return null;
     }
 
-    final selectedStream = selectAudioOnlyStreamForQuality(audioStream);
+    final selectedStream = selectAudioOnlyStreamForQuality(
+      audioStream,
+      quality: quality,
+    );
     if (selectedStream == null) {
       logger.log(
         'fetchBestAudioStream: no compatible audio streams for $songId',
@@ -709,7 +757,7 @@ Future<AudioOnlyStreamInfo?> fetchBestAudioStream(String? songId) async {
       return null;
     }
 
-    _cacheSelectedAudioStream(songId, selectedStream);
+    _cacheSelectedAudioStream(songId, selectedStream, quality);
     return selectedStream;
   } on TimeoutException catch (_) {
     logger.log('fetchBestAudioStream request timed out for $songId');
@@ -808,7 +856,12 @@ Future<String?> getSongLyrics(String? artist, String title) async {
   return lyrics.value;
 }
 
-Future<bool> makeSongOffline(dynamic song, {bool Function()? isCancelled, void Function(int received, int total)? onProgress}) async {
+Future<bool> makeSongOffline(
+  dynamic song, {
+  String? quality,
+  bool Function()? isCancelled,
+  void Function(int received, int total)? onProgress,
+}) async {
   try {
     final String? ytid = song['ytid'];
 
@@ -837,7 +890,7 @@ Future<bool> makeSongOffline(dynamic song, {bool Function()? isCancelled, void F
     String? audioCodec;
     IOSink? fileStream;
     try {
-      final audioManifest = await fetchBestAudioStream(ytid);
+      final audioManifest = await fetchBestAudioStream(ytid, quality: quality);
       if (audioManifest == null) {
         logger.log('makeSongOffline: audioManifest is null for $ytid');
         return false;
@@ -849,7 +902,8 @@ Future<bool> makeSongOffline(dynamic song, {bool Function()? isCancelled, void F
       fileStream = audioFile.openWrite();
       var received = 0;
       await for (final chunk in stream) {
-        if (isCancelled?.call() == true) throw const FileSystemException('Download cancelled');
+        if (isCancelled?.call() == true)
+          throw const FileSystemException('Download cancelled');
         fileStream.add(chunk);
         received += chunk.length;
         onProgress?.call(received, audioManifest.size.totalBytes);

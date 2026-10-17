@@ -1,0 +1,25 @@
+.eq-page { max-width: 620px; margin: 0 auto; }
+.eq-heading { display: flex; justify-content: space-between; align-items: center; margin-top: 22px; }
+.eq-heading h1 { margin: 4px 0; font-size: 32px; }
+.eq-switch { display: flex; align-items: center; gap: 12px; }
+.eq-description { color: var(--muted); font-size: 13px; line-height: 1.6; }
+.eq-console { background: #141419; border: 1px solid #ffffff12; border-radius: 24px; padding: 22px 16px; color: #f6f4ff; }
+.eq-sliders { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
+.eq-band { display: flex; flex-direction: column; align-items: center; gap: 8px; min-width: 0; }
+.eq-rail { display: flex; justify-content: center; width: 100%; height: clamp(180px, 32dvh, 300px); border-radius: 20px; background: linear-gradient(#ffffff03, #ffffff00); }
+.eq-band input[type=range] { writing-mode: vertical-lr; direction: rtl; appearance: none; width: 34px; height: 100%; padding: 0; margin: 0; background: transparent; cursor: ns-resize; }
+.eq-band input::-webkit-slider-runnable-track { width: 3px; background: linear-gradient(#5b566a, #a79cff 60%, #ff6b81); border-radius: 4px; box-shadow: 0 0 9px #a79cff66; }
+.eq-band input::-webkit-slider-thumb { appearance: none; width: 30px; height: 44px; margin-left: -13px; border: 1px solid #686474; border-radius: 14px; background: linear-gradient(#aaa6bd,#aaa6bd) center / 12px 3px no-repeat, #29272f; box-shadow: 0 3px 10px #0006; }
+.eq-band input::-moz-range-track { width: 3px; background: #a79cff; }
+.eq-band input::-moz-range-thumb { width: 30px; height: 44px; border: 1px solid #686474; border-radius: 14px; background: #29272f; }
+.eq-band strong { font-size: 13px; margin-top: 8px; }
+.eq-band small { color: #b8b3c8; font-size: 11px; }
+.eq-curve { margin: 24px 0; height: 60px; background: #ffffff08; border-radius: 14px; overflow: hidden; }
+.eq-curve svg { width: 100%; height: 100%; }
+.eq-zero { stroke: #ffffff25; stroke-width: 1; }
+#eq-curve-line { stroke: #c4baff; stroke-width: 2; fill: none; }
+.eq-actions { display: flex; align-items: end; gap: 12px; }
+.eq-actions label { flex: 1; min-width: 0; font-size: 12px; }
+.eq-actions select { width: 100%; margin-top: 8px; color: #f6f4ff; background: #29272f; }
+.eq-actions button { min-height: 44px; }
+body.light .eq-description { color: #665e76; }

@@ -47,14 +47,38 @@ MediaItem mapToMediaItem(Map song) {
       : <String, dynamic>{};
   final isOffline = offlineSong.isNotEmpty;
 
-  final artUri = isOffline && offlineSong['artworkPath'] != null
-      ? Uri.file(offlineSong['artworkPath'].toString())
-      : Uri.parse(song['highResImage'].toString());
+  Uri? artUri;
+  if (isOffline && offlineSong['artworkPath'] != null) {
+    final filePath = offlineSong['artworkPath'].toString().trim();
+    if (filePath.isNotEmpty) artUri = Uri.file(filePath);
+  }
+  if (artUri == null) {
+    for (final value in [
+      song['image'],
+      song['artwork'],
+      song['highResImage'],
+      song['lowResImage'],
+    ]) {
+      var candidate = value?.toString().trim() ?? '';
+      if (candidate.isEmpty || candidate == 'null') continue;
+      // YouTube's maxresdefault image is absent for many songs. hqdefault is
+      // consistently available and prevents blank Android media cards.
+      candidate = candidate.replaceFirst('/maxresdefault.jpg', '/hqdefault.jpg');
+      final parsed = Uri.tryParse(candidate);
+      if (parsed != null && ['https', 'http', 'file'].contains(parsed.scheme)) {
+        artUri = parsed;
+        break;
+      }
+    }
+  }
 
   return MediaItem(
     id: song['id'].toString(),
-    artist: song['artist'].toString().trim(),
-    title: song['title'].toString(),
+    album: song['album']?.toString(),
+    artist: song['artist']?.toString().trim() ?? 'Unknown artist',
+    title: song['title']?.toString().trim().isNotEmpty == true
+        ? song['title'].toString().trim()
+        : 'Unknown song',
     artUri: artUri,
     duration: readMediaDuration(song['duration']),
     extras: {

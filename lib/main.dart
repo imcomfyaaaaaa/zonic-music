@@ -290,11 +290,18 @@ Future<void> initialisation({bool grove = false}) async {
     audioHandler = await AudioService.init(
       builder: MusifyAudioHandler.new,
       config: AudioServiceConfig(
-        androidNotificationChannelId: grove ? 'app.grove.music.playback' : 'com.gokadzev.musify',
-        androidNotificationChannelName: grove ? 'Grove' : 'Musify',
+        androidNotificationChannelId: grove
+            ? 'app.grove.music.playback'
+            : 'com.gokadzev.musify',
+        androidNotificationChannelName: 'Zonic',
+        androidNotificationChannelDescription:
+            'Now playing controls and audio output for Zonic',
         androidNotificationIcon: 'drawable/ic_launcher_foreground',
-        androidShowNotificationBadge: true,
+        notificationColor: const Color(0xFF8E80FF),
         androidStopForegroundOnPause: false,
+        preloadArtwork: true,
+        artDownscaleWidth: 1024,
+        artDownscaleHeight: 1024,
         // Handed to Android Auto on the browsable root. Without the search
         // flag the car never offers a search box, and without the content
         // style keys it falls back to an undifferentiated list of everything.
@@ -314,12 +321,13 @@ Future<void> initialisation({bool grove = false}) async {
 
     try {
       // Listen to incoming links while app is running
-      if (!grove) appLinksSubscription = appLinks.uriLinkStream.listen(
-        handleIncomingLink,
-        onError: (err) {
-          logger.log('URI link error:', error: err);
-        },
-      );
+      if (!grove)
+        appLinksSubscription = appLinks.uriLinkStream.listen(
+          handleIncomingLink,
+          onError: (err) {
+            logger.log('URI link error:', error: err);
+          },
+        );
     } on PlatformException {
       logger.log('Failed to get initial uri');
     }

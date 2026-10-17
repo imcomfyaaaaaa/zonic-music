@@ -25,12 +25,7 @@ test('Zonic phone tabs preserve access to library, playlists and settings', asyn
  await expect(page.locator('.mobile-tabs')).toBeVisible(); await expect(page.locator('.sidebar')).toBeHidden();
  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
  await page.screenshot({ path: '/tmp/grove-zonic-mobile.png' });
- await page.locator('#player-expand').click();
- await expect(page.locator('#player-expand')).toHaveAttribute('aria-expanded', 'true');
- const artwork = await page.locator('#now-art').boundingBox();
- expect(artwork.width).toBeGreaterThan(200);
- await page.screenshot({ path: '/tmp/zonic-expanded-mobile.png' });
- await page.locator('#player-expand').click();
+ await expect(page.locator('footer.player')).toBeHidden(); // No song selected yet.
  await page.locator('.mobile-tabs [data-view="library"]').click();
  await expect(page.getByRole('heading', { name: 'Your library', exact: true })).toBeVisible();
  await page.locator('header [data-view="settings"]').click();

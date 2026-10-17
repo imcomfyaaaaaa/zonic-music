@@ -9,14 +9,16 @@
    -------------------------------------------------------------------------- */
 :root {
   color-scheme: dark;
-  --bg: #08090e;
-  --panel: #10121a;
-  --surface: #161825;
+  --bg: #0a0a0a;
+  --panel: #121212;
+  --surface: #181818;
   --line: rgba(255, 255, 255, 0.08);
-  --text: #f7f8fc;
-  --muted: #8b8fa8;
-  --accent: #7c6aff;
-  font-family: 'DM Sans', Manrope, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --text: #f5f5f7;
+  --muted: #a1a1a6;
+  --accent: #8e80ff;
+  --play: #8e80ff;
+  --like: #ff6b81;
+  font-family: Manrope, 'Segoe UI', sans-serif;
   font-size: 15px;
 }
 
@@ -29,6 +31,34 @@ body {
   background: var(--bg);
   color: var(--text);
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+}
+
+html.native-shell,
+html.native-shell body {
+  width: 100%;
+  min-height: 100%;
+  touch-action: manipulation;
+}
+
+html.native-shell body {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+html.native-shell input,
+html.native-shell textarea,
+html.native-shell [contenteditable="true"] {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+html.native-shell img {
+  -webkit-user-drag: none;
+  user-drag: none;
 }
 
 button,
@@ -60,6 +90,11 @@ button {
   transition: background-color 0.16s ease, transform 0.1s ease;
 }
 
+@media (hover: none) and (pointer: coarse) {
+  button:active,
+  a:active { transform: scale(.975); }
+}
+
 button:hover {
   background: rgba(255, 255, 255, 0.08);
 }
@@ -87,7 +122,7 @@ h1,
 h2,
 h3,
 .brand {
-  font-family: Manrope, sans-serif;
+  font-family: Manrope, 'Segoe UI', sans-serif;
 }
 
 h1 {
@@ -189,7 +224,7 @@ nav button span {
 
 nav button.active,
 #playlist-nav button.active {
-  background: rgba(124, 106, 255, 0.16);
+  background: rgba(255, 255, 255, 0.1);
   color: var(--text);
 }
 
@@ -429,8 +464,8 @@ header > button + button {
 }
 
 .cover {
-  border-radius: 14px;
-  background: linear-gradient(140deg, #362e6e, #181930);
+  border-radius: 6px;
+  background: #282828;
   display: grid;
   place-items: center;
   overflow: hidden;
@@ -502,7 +537,7 @@ header > button + button {
 }
 
 .track.current {
-  background: rgba(124, 106, 255, 0.12);
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .track .number {
@@ -523,6 +558,41 @@ header > button + button {
   text-align: left;
   overflow: hidden;
   min-width: 0;
+}
+
+.track .track-title,
+.track .track-artist {
+  display: block;
+  width: 100%;
+  padding: 0;
+  text-align: left;
+}
+
+.track .track-artist {
+  margin-top: 4px;
+  overflow: hidden;
+  color: var(--accent);
+  font-size: 12px;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.track .track-artist:hover,
+.track .track-artist:focus-visible {
+  text-decoration-color: currentColor;
+}
+
+.artist-choice-list {
+  display: grid;
+  gap: 8px;
+  margin: 18px 0;
+}
+
+.artist-choice-list button {
+  justify-content: flex-start;
+  width: 100%;
 }
 
 .track strong {
@@ -546,7 +616,7 @@ header > button + button {
 }
 
 .liked {
-  color: #ff6b8a;
+  color: var(--like);
 }
 
 /* --------------------------------------------------------------------------
@@ -589,14 +659,16 @@ header > button + button {
 }
 
 .now strong,
-.now small {
+.now small,
+.now .artist-link {
   display: block;
   white-space: nowrap;
   text-overflow: ellipsis;
   overflow: hidden;
 }
 
-.now small {
+.now small,
+.now .artist-link {
   margin-top: 4px;
   font-size: 11px;
 }
@@ -1126,7 +1198,8 @@ body.black {
   .now strong {
     font-size: 12px;
   }
-  .now small {
+  .now small,
+  .now .artist-link {
     font-size: 10px;
   }
   .now button {

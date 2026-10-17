@@ -3,6 +3,7 @@
     package="com.gokadzev.musify">
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
     <uses-feature android:name="android.software.leanback" android:required="false" />
+    <uses-feature android:name="android.hardware.type.automotive" android:required="false" />
 
 
     <!-- Permissions -->
@@ -39,6 +40,13 @@
         android:banner="@drawable/grove_tv_banner"
         android:usesCleartextTraffic="true"
         android:enableOnBackInvokedCallback="true">
+
+        <!-- Android TV devices often ship older vendor Vulkan drivers. Flutter's
+             Impeller renderer can terminate the process on those drivers before
+             Dart draws a frame, so use the mature OpenGL renderer for this APK. -->
+        <meta-data
+            android:name="io.flutter.embedding.android.EnableImpeller"
+            android:value="false" />
 
         <!-- AudioServiceActivity -->
         <activity
@@ -78,6 +86,7 @@
                     android:host="playlist"
                     android:pathPattern="/custom/.*" />
                 <data android:scheme="grove" android:host="playlist" android:pathPattern="/custom/.*" />
+                <data android:scheme="grove" android:host="dropbox" android:path="/callback" />
             </intent-filter>
             <!-- Intent filter for handling text sharing -->
             <intent-filter>

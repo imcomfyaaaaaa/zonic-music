@@ -23,7 +23,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:musify/extensions/l10n.dart';
 import 'package:musify/widgets/song_bar.dart';
 
-const _musifyIconAsset = 'assets/icons/musify_icon.png';
+const _musifyIconAsset = 'assets/icons/zonic_icon.png';
 
 class ListeningRecapCard extends StatelessWidget {
   const ListeningRecapCard({
@@ -160,7 +160,7 @@ class _RecapBrandHeader extends StatelessWidget {
                     ),
                     const SizedBox(width: 6),
                     Text(
-                      'Musify',
+                      'Zonic',
                       maxLines: 1,
                       style: TextStyle(
                         color: colorScheme.onSecondaryContainer,

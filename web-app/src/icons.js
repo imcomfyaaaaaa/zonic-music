@@ -10,6 +10,7 @@ const paths = {
  plus: '<path d="M12 5v14M5 12h14"/>',
  upload: '<path d="M12 16V3m-5 5 5-5 5 5M4 15v5h16v-5"/>',
  download: '<path d="M12 3v13m-5-5 5 5 5-5M4 16v5h16v-5"/>',
+ downloaded: '<circle cx="12" cy="12" r="9"/><path d="m8 12 2.6 2.6L16.5 9"/>',
  play: '<path d="m9 5 11 7-11 7Z"/>',
  pause: '<path d="M8 5v14M16 5v14"/>',
  previous: '<path d="M5 5v14m14-14L8 12l11 7Z"/>',
@@ -25,6 +26,7 @@ const paths = {
  close: '<path d="m6 6 12 12M6 18 18 6"/>',
  up: '<path d="M12 20V4m-7 7 7-7 7 7"/>',
  tv: '<rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/>',
+ car: '<path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10l-1.5-4.5c-.3-.9-1.1-1.5-2.1-1.5H8.6c-1 0-1.8.6-2.1 1.5L5 10s-2.7.6-4.5 1.1C.7 11.3 0 12.1 0 13v3c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/>',
  music: '<path d="M9 18V5l11-2v13M9 9l11-2"/><ellipse cx="6" cy="18" rx="3" ry="3"/><ellipse cx="17" cy="16" rx="3" ry="3"/>',
  folder: '<path d="M3 6a2 2 0 0 1 2-2h5l2 3h7a2 2 0 0 1 2 2v10H3Z"/>',
  edit: '<path d="m14 5 5 5M4 20l5-1L21 7l-5-5L4 14Z"/>',
@@ -38,10 +40,10 @@ const paths = {
  volume: '<path d="m11 4-6 5H2v6h3l6 5Zm4 4a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14"/>',
 };
 export function icon(name) { return `<svg class="ui-icon" data-icon="${name}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${paths[name] || paths.music}</svg>`; }
-const views = { home: 'home', browse: 'search', library: 'library', liked: 'heart', radio: 'radio', recap: 'history', recent: 'history', settings: 'settings', queue: 'queue', downloads: 'download', artists: 'artist', 'radio-favorites': 'radio' };
-const actions = { import: 'upload', url: 'link', 'playlist-url': 'link', spotify: 'music', export: 'upload', restore: 'download', 'online-search': 'search', 'more-results': 'plus', lyrics: 'lyrics', download: 'download', 'new-playlist': 'plus', tv: 'tv', 'reset-eq': 'refresh' };
-const features = { 'current-menu': 'more', 'sheet-close': 'close', 'track-play': 'play', 'track-queue': 'queue', 'track-next': 'next', 'track-download': 'download', 'track-lyrics': 'lyrics', 'track-artist': 'artist', 'track-rename': 'edit', 'track-share': 'share', 'track-remove-download': 'trash', 'track-delete': 'trash', 'playlist-options': 'edit', 'playlist-download': 'download', 'playlist-refresh': 'refresh', 'playlist-share': 'share', 'playlist-save': 'save', 'folder-create': 'folder', 'folder-rename': 'edit', 'folder-delete': 'trash', 'queue-clear': 'trash', 'radio-add': 'plus', 'history-clear': 'trash', 'artist-search': 'search', 'artist-like': 'heart', 'archive-export': 'upload', 'archive-import': 'download', 'musify-import': 'download', 'stats-clear': 'trash', 'cache-clear': 'trash', 'proxy-save': 'save', 'updates-save': 'save', 'updates-check': 'refresh', 'updates-open': 'download', 'end-timer': 'timer', 'timer-cancel': 'close', 'downloads-cancel': 'close', 'link-open': 'link' };
-const ids = { 'new-playlist': 'plus', 'import-music': 'upload', 'tv-mode': 'tv', previous: 'previous', next: 'next', repeat: 'repeat', 'now-more': 'more', 'dialog-confirm': 'save' };
+const views = { home: 'home', browse: 'search', library: 'library', liked: 'heart', radio: 'radio', recap: 'history', recent: 'history', settings: 'settings', queue: 'queue', downloads: 'download', artists: 'artist', 'radio-favorites': 'radio', auto: 'car', 'tv-player': 'tv' };
+const actions = { import: 'upload', url: 'link', 'playlist-url': 'link', spotify: 'music', export: 'upload', restore: 'download', 'online-search': 'search', 'more-results': 'plus', lyrics: 'lyrics', 'lyrics-fullscreen': 'lyrics', 'lyrics-close': 'close', download: 'download', 'new-playlist': 'plus', tv: 'tv', auto: 'car', car: 'car', 'reset-eq': 'refresh' };
+const features = { 'current-menu': 'more', 'current-queue': 'queue', 'current-next': 'next', 'current-playlist': 'plus', 'current-playlist-create': 'plus', 'sheet-close': 'close', 'track-play': 'play', 'track-queue': 'queue', 'track-next': 'next', 'track-playlist': 'plus', 'track-remove-playlist': 'trash', 'track-album': 'music', 'track-download': 'download', 'track-lyrics': 'lyrics', 'track-artist': 'artist', 'track-share': 'share', 'track-remove-download': 'trash', 'track-delete': 'trash', 'playlist-options': 'edit', 'playlist-download': 'download', 'playlist-refresh': 'refresh', 'playlist-share': 'share', 'playlist-save': 'save', 'folder-create': 'folder', 'folder-rename': 'edit', 'folder-delete': 'trash', 'queue-clear': 'trash', 'radio-add': 'plus', 'history-clear': 'trash', 'artist-search': 'search', 'artist-like': 'heart', 'archive-export': 'upload', 'archive-import': 'download', 'musify-import': 'download', 'stats-clear': 'trash', 'cache-clear': 'trash', 'proxy-save': 'save', 'updates-save': 'save', 'updates-check': 'refresh', 'updates-open': 'download', 'end-timer': 'timer', 'timer-cancel': 'close', 'downloads-cancel': 'close', 'link-open': 'link' };
+const ids = { 'new-playlist': 'plus', 'import-music': 'upload', 'tv-mode': 'tv', 'auto-mode': 'car', previous: 'previous', next: 'next', repeat: 'repeat', 'now-more': 'more', 'dialog-confirm': 'save' };
 export function decorateButtons(root = document) {
  for (const button of root.querySelectorAll('button')) {
   if (button.matches('.card,.track-name,.queue-preview-track,.artist,.zone-chip') || button.querySelector('strong') || button.dataset.browseQuery) continue;
@@ -57,7 +59,7 @@ export function decorateButtons(root = document) {
   if (button.value === 'cancel') name = 'close';
   if (!name) continue;
   if (button.querySelector(':scope > .ui-icon')?.dataset.icon === name) continue;
-  const only = !!button.getAttribute('aria-label') && !['tv-mode','dialog-confirm'].includes(button.id) || ['play','shuffle','repeat','previous','next','now-like'].includes(button.id);
+  const only = !!button.getAttribute('aria-label') && !['tv-mode','auto-mode','dialog-confirm'].includes(button.id) || ['play','shuffle','repeat','previous','next','now-like'].includes(button.id);
   // Retain text nodes for translation; do not replace user-supplied playlist names.
   button.querySelectorAll(':scope > .ui-icon').forEach(el => el.remove());
   for (const span of button.querySelectorAll(':scope > span')) if (/^[⌂⌕▤♡◉◷]+$/.test(span.textContent.trim())) span.remove();

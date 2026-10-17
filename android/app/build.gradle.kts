@@ -60,7 +60,9 @@ android {
     productFlavors {
         create("github") {
             dimension = "flavor"
-            applicationIdSuffix = ""
+            // Keep the beta package ID stable across debug and optimized
+            // release builds so existing GitHub installs update in place.
+            applicationIdSuffix = ".debug"
         }
         create("fdroid") {
             dimension = "flavor"
@@ -93,7 +95,14 @@ android {
 
     buildTypes {
         getByName("release") {
-            signingConfig = signingConfigs.getByName("release")
+            // Local beta builds remain update-compatible with the APKs already
+            // distributed from GitHub. Production must provide key.jks and
+            // key.properties, at which point the permanent release key is used.
+            signingConfig = if (keystorePropertiesFile.exists() && file("key.jks").exists()) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
+            }
             isShrinkResources = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
@@ -101,7 +110,6 @@ android {
             )
         }
         getByName("debug") {
-            applicationIdSuffix = ".debug"
             versionNameSuffix = " DEBUG"
         }
     }

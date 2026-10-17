@@ -23,7 +23,8 @@ class GroveActivity : AudioServiceActivity() {
         val mode = getSystemService(Context.UI_MODE_SERVICE) as UiModeManager
         val accent = if (Build.VERSION.SDK_INT >= 31) getColor(android.R.color.system_accent1_200) else 0xffc5ed9b.toInt()
         val isTv = mode.currentModeType == Configuration.UI_MODE_TYPE_TELEVISION || packageManager.hasSystemFeature(PackageManager.FEATURE_LEANBACK)
-        result.success(mapOf("tv" to isTv, "accent" to String.format("#%06X", accent and 0xffffff)))
+        val isAuto = mode.currentModeType == Configuration.UI_MODE_TYPE_CAR || packageManager.hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE)
+        result.success(mapOf("tv" to isTv, "auto" to isAuto, "accent" to String.format("#%06X", accent and 0xffffff)))
       } else if (call.method == "requestNotifications") {
         if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
           ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.POST_NOTIFICATIONS), 604)

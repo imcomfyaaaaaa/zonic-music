@@ -1,7 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { emptyLibrary, validateBackup, safeUrl, nextIndex, parseSpotifyCsv, migrateMusify, eqPreset } from '../src/library.js';
-import { newerVersion } from '../src/updates.js';
+import { newerVersion, selectApkAsset } from '../src/updates.js';
+import { randomId } from '../src/id.js';
+test('ID generation works on non-secure phone origins without crypto.randomUUID', () => {
+  const id = randomId({ getRandomValues(bytes) { bytes.fill(7); return bytes; } });
+  assert.match(id, /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+});
 test('backup rejects active URLs and duplicate identifiers', () => {
   const value = emptyLibrary();
   value.tracks = [{ id: 'a', title: 'Song', kind: 'url', url: 'javascript:alert(1)' }];
@@ -43,6 +48,34 @@ test('queue metadata preserves repeated entries and validates settings', () => {
   const restored = validateBackup(state); assert.deepEqual(restored.queue.ids, ['a', 'a']); assert.equal(restored.queue.position, 30); assert.equal(restored.settings.repeatOne, true);
   assert.deepEqual(eqPreset('bassBoost'), [8, 8, 3, -2, -2]);
 });
+test('quality settings migrate independently from the legacy preference', () => {
+  const legacy = emptyLibrary(); legacy.settings.quality = 'medium'; delete legacy.settings.streamingQuality; delete legacy.settings.downloadQuality;
+  const migrated = validateBackup(legacy);
+  assert.equal(migrated.settings.streamingQuality, 'medium'); assert.equal(migrated.settings.downloadQuality, 'medium');
+  const split = emptyLibrary(); split.settings.streamingQuality = 'low'; split.settings.downloadQuality = 'high';
+  const restored = validateBackup(split);
+  assert.equal(restored.settings.streamingQuality, 'low'); assert.equal(restored.settings.downloadQuality, 'high');
+});
+test('saved tracks preserve valid high-resolution artwork', () => {
+  const state = emptyLibrary();
+  state.tracks = [{ id: 'yt:abcdefghijk', ytid: 'abcdefghijk', title: 'Song', kind: 'youtube', artwork: 'https://example.com/medium.jpg', highResImage: 'https://example.com/large.jpg' }];
+  const restored = validateBackup(state);
+  assert.equal(restored.tracks[0].artwork, 'https://example.com/medium.jpg');
+  assert.equal(restored.tracks[0].highResArtwork, 'https://example.com/large.jpg');
+});
+
+test('download byte counts survive library validation', () => {
+  const state = emptyLibrary();
+  state.tracks = [{ id: 'yt:abcdefghijk', ytid: 'abcdefghijk', title: 'Offline song', artist: 'Artist', kind: 'youtube', downloaded: true, downloadBytes: 12_345_678 }];
+  assert.equal(validateBackup(state).tracks[0].downloadBytes, 12_345_678);
+  state.tracks[0].downloadBytes = -1;
+  assert.equal(validateBackup(state).tracks[0].downloadBytes, 0);
+});
 test('Grove update comparison never treats older or malformed releases as newer', () => {
   assert.equal(newerVersion('0.2.0', 'v0.3.0'), true); assert.equal(newerVersion('0.2.0', 'v0.1.9'), false); assert.equal(newerVersion('0.2.0', 'invalid'), false);
+  const selected = selectApkAsset([
+    { name: 'Zonic-arm64-v8a.apk', browser_download_url: 'https://github.com/example/app/releases/download/v1/Zonic-arm64-v8a.apk' },
+    { name: 'Zonic.apk', browser_download_url: 'https://github.com/example/app/releases/download/v1/Zonic.apk' },
+  ]);
+  assert.equal(selected.name, 'Zonic.apk');
 });

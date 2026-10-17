@@ -35,9 +35,9 @@ button:disabled {
 }
 
 button:focus-visible {
-  outline: 3px solid #ddd5ff;
+  outline: 2px solid var(--play);
   outline-offset: 3px;
-  box-shadow: 0 0 0 6px rgba(124, 106, 255, 0.4);
+  box-shadow: none;
 }
 
 /* --------------------------------------------------------------------------
@@ -83,9 +83,9 @@ button.label-button:active {
    4. Pressed States (aria-pressed) & Specific Icons
    -------------------------------------------------------------------------- */
 button.icon-button[aria-pressed=true] {
-  color: var(--coral);
-  background: rgba(255, 107, 138, 0.08);
-  border-color: rgba(255, 107, 138, 0.15);
+  color: var(--like);
+  background: rgba(252, 60, 68, 0.1);
+  border-color: rgba(252, 60, 68, 0.25);
 }
 
 button[aria-pressed=true] > .ui-icon[data-icon=heart] {
@@ -134,12 +134,12 @@ button .ui-icon[data-icon=more] {
 
 .sidebar nav button.active .ui-icon {
   opacity: 1;
-  color: #cec5ff;
+  color: var(--play);
 }
 
 .sidebar nav button.active {
-  background: linear-gradient(110deg, rgba(124, 106, 255, 0.18), rgba(255, 255, 255, 0.04));
-  box-shadow: inset 3px 0 0 var(--violet), inset 0 1px 0 var(--hi);
+  background: var(--surface-2);
+  box-shadow: none;
   color: #fff;
 }
 
@@ -188,7 +188,7 @@ button .ui-icon[data-icon=more] {
   width: 18px;
   height: 18px;
   min-width: 18px;
-  color: #b0a8d0;
+  color: var(--muted);
 }
 
 header > button.icon-button {
@@ -212,9 +212,9 @@ header > button.icon-button {
 }
 
 #tv-mode[aria-pressed=true] {
-  color: var(--coral);
-  border-color: rgba(255, 107, 138, 0.4);
-  background: rgba(255, 107, 138, 0.08);
+  color: var(--like);
+  border-color: rgba(30, 215, 96, 0.4);
+  background: rgba(252, 60, 68, 0.1);
 }
 
 /* --------------------------------------------------------------------------
@@ -244,21 +244,21 @@ header > button.icon-button {
   height: 48px;
   min-width: 48px;
   min-height: 48px;
-  color: #fff;
-  background: linear-gradient(145deg, #9884ff, #7c6aff);
-  border: 1px solid rgba(198, 186, 255, 0.5);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 6px 24px rgba(124, 106, 255, 0.45);
+  color: #0a0a0a;
+  background: #fff;
+  border: 0;
+  box-shadow: none;
 }
 
 .transport-buttons .play-main.icon-button:hover {
-  background: linear-gradient(145deg, #aa9cff, #8878ff);
-  border-color: #e0d8ff;
+  background: #fff;
+  border-color: transparent;
 }
 
 #shuffle[aria-pressed=true],
 #repeat[aria-pressed=true] {
   position: relative;
-  background: rgba(255, 107, 138, 0.06);
+  background: rgba(30, 215, 96, 0.1);
   border-color: transparent;
 }
 
@@ -270,7 +270,7 @@ header > button.icon-button {
   left: calc(50% - 2px);
   width: 4px;
   height: 4px;
-  background: var(--coral);
+  background: var(--play);
   border-radius: 50%;
 }
 
@@ -428,7 +428,7 @@ header > button.icon-button {
   padding: 0 22px;
   font-size: 13px;
   min-height: 46px;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 6px 22px rgba(124, 106, 255, 0.4);
+  box-shadow: none;
 }
 
 #content .secondary.label-button,
@@ -506,23 +506,23 @@ button[data-feature=track-delete] .ui-icon {
    12. Light Theme Overrides
    -------------------------------------------------------------------------- */
 body.light button.icon-button:hover {
-  background: rgba(124, 106, 255, 0.06);
+  background: rgba(30, 215, 96, 0.1);
 }
 
 body.light .sidebar nav button.active {
-  color: #4a34ba;
+  color: #1d1d1f;
 }
 
 body.light .sidebar nav button.active .ui-icon {
-  color: #6650db;
+  color: var(--play);
 }
 
 body.light .search .ui-icon {
-  color: #6650a0;
+  color: var(--muted);
 }
 
 body.light .track-actions .ui-icon {
-  color: #7c6aff;
+  color: var(--play);
 }
 
 /* --------------------------------------------------------------------------
@@ -545,7 +545,7 @@ body.light .track-actions .ui-icon {
 
 .tv button:focus-visible {
   outline-width: 4px;
-  box-shadow: 0 0 0 8px rgba(124, 106, 255, 0.3);
+  box-shadow: 0 0 0 8px rgba(30, 215, 96, 0.25);
 }
 
 /* --------------------------------------------------------------------------
@@ -581,7 +581,7 @@ body.light .track-actions .ui-icon {
   }
 
   .mobile-tabs button.active {
-    color: #ff8fa0;
+    color: var(--text);
     background: none;
   }
 
@@ -590,7 +590,7 @@ body.light .track-actions .ui-icon {
     width: 16px;
     height: 2px;
     border-radius: 2px;
-    background: #ff8fa0;
+    background: var(--play);
     position: absolute;
     bottom: 6px;
   }

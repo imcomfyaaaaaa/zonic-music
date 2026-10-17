@@ -29,6 +29,7 @@
 .pub-cache/
 .pub/
 /build/
+.firebase/
 android/local.properties
 
 # Web related

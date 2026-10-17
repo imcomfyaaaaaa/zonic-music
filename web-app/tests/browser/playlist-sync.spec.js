@@ -2,19 +2,27 @@ import { test, expect } from '@playwright/test';
 
 test('YouTube playlists add newly uploaded songs on reopening and respect the sync switch', async ({ page }) => {
   let songs = 1;
-  await page.route('**/api/playlist?*', route => route.fulfill({ contentType: 'application/json', body: JSON.stringify({ name: 'Fresh uploads', source: 'https://www.youtube.com/playlist?list=PL1234567890', tracks: Array.from({ length: songs }, (_, i) => ({ id: `yt:abcdefghij${i}`, ytid: `abcdefghij${i}`, kind: 'youtube', title: `Song ${i + 1}`, artist: 'Artist' })) }) }));
+  let playlistName = 'Liked Songs';
+  await page.route('**/api/playlist?*', route => route.fulfill({ contentType: 'application/json', body: JSON.stringify({ name: playlistName, source: 'https://www.youtube.com/playlist?list=PL1234567890', tracks: Array.from({ length: songs }, (_, i) => ({ id: `yt:abcdefghij${i}`, ytid: `abcdefghij${i}`, kind: 'youtube', title: `Song ${i + 1}`, artist: 'Artist' })) }) }));
   await page.goto('/');
-  await page.locator('.sidebar-bottom [data-view=settings]').click();
-  await expect(page.getByRole('heading', { name: 'Library & YouTube sync' })).toBeVisible();
+  await page.locator('.sidebar nav [data-view=library]').click();
+  await page.getByRole('button', { name: 'Add music or playlist' }).click();
   await page.getByRole('button', { name: 'Import YouTube playlist' }).click();
-  await page.locator('#dialog-input').fill('https://www.youtube.com/playlist?list=PL1234567890');
+  await page.locator('#dialog-input').fill('Shared from YouTube: https://m.youtube.com/playlist?list=PL1234567890&si=phone-share');
   await page.locator('#dialog-confirm').click();
+  await page.getByRole('button', { name: /Keep as YouTube playlist/ }).click();
   await expect(page.locator('.track')).toHaveCount(1);
-  songs = 2;
+  await expect(page.locator('.track-title strong')).toHaveText('Song 1');
+  await expect(page.locator('#playlist-nav button').filter({ hasText: 'Liked Songs' })).toHaveCount(0);
+  songs = 2; playlistName = 'Fresh uploads from YouTube';
   await page.reload();
-  await expect(page.locator('#playlist-nav button')).toContainText('Fresh uploads');
   await page.locator('#playlist-nav button').click();
   await expect(page.locator('.track')).toHaveCount(2);
+  await expect(page.locator('.page-top')).toContainText('Songs are protected');
+  await page.locator('[data-menu]').first().click();
+  await expect(page.locator('[data-feature="track-remove-playlist"]')).toHaveCount(0);
+  await page.locator('[data-feature="sheet-close"]').click();
+  await expect(page.locator('#playlist-nav button')).toContainText('Fresh uploads from YouTube');
   await page.locator('.sidebar-bottom [data-view=settings]').click();
   await page.locator('[data-feature-setting="autoPlaylistSync"]').uncheck();
   songs = 3;
@@ -25,6 +33,22 @@ test('YouTube playlists add newly uploaded songs on reopening and respect the sy
   await page.getByRole('button', { name: 'Sync now' }).click();
   await page.locator('#playlist-nav button').click();
   await expect(page.locator('.track')).toHaveCount(3);
+  await page.getByRole('button', { name: 'Copy to Zonic' }).click();
+  await expect(page.locator('.page-top')).toContainText('Zonic playlist');
+  await expect(page.getByRole('button', { name: 'Copy to Zonic' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Clean duplicates' })).toBeVisible();
+  await page.getByRole('button', { name: 'Move Song 1 down' }).click();
+  await expect(page.locator('.track-title strong').first()).toHaveText('Song 2');
+  await page.reload();
+  await page.locator('#playlist-nav button').filter({ hasText: 'Zonic' }).click();
+  await expect(page.locator('.track-title strong').first()).toHaveText('Song 2');
+  await page.locator('.sidebar nav [data-view=library]').click();
+  await expect(page.locator('.library-playlist-item')).toHaveCount(3);
+  await page.getByRole('button', { name: 'YouTube', exact: true }).click();
+  await expect(page.locator('.library-playlist-item')).toHaveCount(2);
+  await expect(page.locator('.library-playlist-copy')).toContainText(['Liked Songs', 'Fresh uploads from YouTube']);
+  await page.getByRole('button', { name: 'Switch playlist layout' }).click();
+  await expect(page.locator('.library-playlist-list')).toHaveClass(/is-grid/);
 });
 
 test('redesigned settings stay readable on desktop and phone', async ({ page }) => {

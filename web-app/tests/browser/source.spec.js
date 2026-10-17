@@ -1,14 +1,14 @@
 import { test, expect } from '@playwright/test';
 test('online source errors appear without breaking the local library', async ({ page }) => {
   await page.route('**/api/search?*', route => route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ error: 'Source temporarily unavailable' }) }));
-  await page.goto('/'); await page.locator('#search').fill('Music');
+  await page.goto('/'); await expect(page.locator('#content h1')).toBeVisible(); await page.locator('#search').fill('Music');
   await expect(page.locator('#toast')).toHaveText('Source temporarily unavailable');
   await expect(page.locator('#search')).toBeEnabled();
 });
 test('source favorites survive a library reload', async ({ page }) => {
   const song = { id: 'yt:abcdefghijk', ytid: 'abcdefghijk', title: 'Source Song', artist: 'Source Artist', kind: 'youtube' };
   await page.route('**/api/search?*', route => route.fulfill({ contentType: 'application/json', body: JSON.stringify([song]) }));
-  await page.goto('/'); await page.locator('#search').fill('Source Song');
+  await page.goto('/'); await expect(page.locator('#root')).not.toHaveAttribute('aria-busy', 'true'); await page.locator('#search').fill('Source Song');
   await expect(page.locator('.track strong')).toHaveText('Source Song'); await page.locator('[data-like]').click(); await expect(page.locator('[data-like]').first()).toHaveAttribute('aria-pressed', 'true');
   await page.reload(); await page.locator('nav [data-view=liked]').click(); await expect(page.locator('.track strong')).toHaveText('Source Song');
 });
@@ -18,11 +18,12 @@ test('typing searches YouTube automatically and opens the selected song', async 
   await page.route('**/api/search?*', route => { searches++; return route.fulfill({ contentType: 'application/json', body: JSON.stringify([song]) }); });
   await page.route('**/api/stream?*', route => route.fulfill({ status: 206, contentType: 'audio/wav', body: Buffer.alloc(4096) }));
   await page.goto('/');
+  await expect(page.locator('#root')).not.toHaveAttribute('aria-busy', 'true');
   await page.locator('#search').fill('YouTube Song');
-  await expect(page.getByRole('heading', { name: 'YouTube music' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Find your next listen' })).toBeVisible();
   await expect(page.locator('.track strong')).toHaveText('YouTube Song');
   expect(searches).toBe(1);
-  await page.locator('.track .cover').click();
+  await page.locator('.track .cover').click({ timeout: 5000 });
   await expect(page.locator('#now-title')).toHaveText('YouTube Song');
 });
 test('live upstream search and stream range request', async ({ request }) => {
@@ -31,6 +32,7 @@ test('live upstream search and stream range request', async ({ request }) => {
   const results = await request.get('/api/search?q=lofi%20instrumental'); expect(results.ok()).toBe(true);
   const songs = await results.json(); expect(songs.length).toBeGreaterThan(0);
   expect(songs.every(s => !/\b\d+\s+hours?\b/i.test(s.title))).toBe(true);
+  expect(songs.every(s => !/\b(?:official\s+(?:music\s+)?video|music\s+video|video\s+clip|behind\s+the\s+scenes|dance\s+video|visuali[sz]er)\b|(?:^|[\s[(])m\/?v(?:[\s\])]|$)/i.test(s.title))).toBe(true);
   const song = songs.find(s => s.ytid);
   const stream = await request.get('/api/stream?id=' + song.ytid, { headers: { Range: 'bytes=0-4095' }, timeout: 90000 });
   expect(stream.status()).toBe(206); expect((await stream.body()).length).toBe(4096);
@@ -39,6 +41,7 @@ test('live upstream search and stream range request', async ({ request }) => {
 test('live YouTube result starts playing in the web player', async ({ page }) => {
   test.setTimeout(120000);
   await page.goto('/');
+  await expect(page.locator('#root')).not.toHaveAttribute('aria-busy', 'true');
   await page.locator('#search').fill('lofi instrumental');
   await expect(page.locator('.track-name').first()).toBeVisible({ timeout: 45000 });
   await page.locator('.track .cover').first().click();
@@ -48,6 +51,7 @@ test('a phone-sized music result plays when its artwork is tapped', async ({ pag
   test.setTimeout(120000);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/');
+  await expect(page.locator('#root')).not.toHaveAttribute('aria-busy', 'true');
   await page.locator('#search').fill('lofi instrumental');
   await expect(page.locator('.track .cover').first()).toBeVisible({ timeout: 45000 });
   await page.locator('.track .cover').first().click();

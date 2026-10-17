@@ -1,5 +1,6 @@
 // Copyright 2026. New web interface for Musify, GPL-3.0-or-later.
-export const emptyLibrary = () => ({ version: 1, tracks: [], playlists: [], folders: [], liked: [], history: [], stats: {}, months: {}, artistFavorites: [], queue: { ids: [], index: -1, position: 0 }, settings: { volume: 0.8, repeat: false, repeatOne: false, shuffle: false, smartShuffle: false, localAI: true, autoPlaylistSync: true, tv: false, sponsorBlock: false, offline: false, autoplay: false, quality: 'high', sort: 'default', language: 'en', theme: 'dark', accent: '#d6f374', dynamicColor: true, proxy: false, proxyUrl: '', eq: [0, 0, 0, 0, 0], eqEnabled: false } });
+import { randomId } from './id.js';
+export const emptyLibrary = () => ({ version: 1, tracks: [], playlists: [], folders: [], liked: [], history: [], stats: {}, months: {}, artistFavorites: [], queue: { ids: [], index: -1, position: 0 }, settings: { volume: 0.8, repeat: false, repeatOne: false, shuffle: false, smartShuffle: false, localAI: true, autoPlaylistSync: true, tv: false, auto: false, sponsorBlock: false, offline: false, autoplay: false, streamingQuality: 'high', downloadQuality: 'high', sort: 'default', language: 'en', theme: 'dark', accent: '#8e80ff', dynamicColor: true, proxy: false, proxyUrl: '', lyricsOffsetMs: 0, eq: [0, 0, 0, 0, 0], eqEnabled: false, updateRepository: 'imcomfyaaaaaa/zonic-music', autoUpdates: true } });
 export function safeUrl(value) {
   try { const u = new URL(value); return ['https:', 'http:'].includes(u.protocol) && !u.username && !u.password ? u.href : ''; } catch { return ''; }
 }
@@ -14,13 +15,13 @@ export function validateBackup(value) {
     if (typeof t.id !== 'string' || !t.id || ['__proto__', 'constructor', 'prototype'].includes(t.id) || t.id.length > 200 || typeof t.title !== 'string' || !['local', 'url', 'radio', 'youtube'].includes(t.kind)) throw new Error('Invalid track in backup.');
     if (['url', 'radio'].includes(t.kind) && !safeUrl(t.url)) throw new Error('Invalid audio URL in backup.');
     if (t.kind === 'youtube' && (!/^[a-zA-Z0-9_-]{11}$/.test(t.ytid) || t.id !== 'yt:' + t.ytid)) throw new Error('Invalid YouTube track in backup.');
-    return { ...(t.recommendation && typeof t.recommendation.seedId === 'string' ? { recommendation: { seedId: t.recommendation.seedId.slice(0, 200), seedTitle: String(t.recommendation.seedTitle || '').slice(0, 500), method: t.recommendation.method === 'ai' ? 'ai' : 'related' } } : {}), id: t.id, title: t.title.slice(0, 500), artist: String(t.artist || '').slice(0, 500), kind: t.kind, ytid: t.ytid, isLive: t.isLive === true, artistId: typeof t.artistId === 'string' ? t.artistId : '', duration: Number.isFinite(t.duration) ? t.duration : null, addedAt: Number.isFinite(t.addedAt) ? t.addedAt : 0, downloaded: t.downloaded === true, url: ['local', 'youtube'].includes(t.kind) ? '' : safeUrl(t.url), artwork: safeUrl(t.artwork), filename: String(t.filename || '').slice(0, 500) };
+    return { ...(t.recommendation && typeof t.recommendation.seedId === 'string' ? { recommendation: { seedId: t.recommendation.seedId.slice(0, 200), seedTitle: String(t.recommendation.seedTitle || '').slice(0, 500), method: t.recommendation.method === 'ai' ? 'ai' : 'related' } } : {}), id: t.id, title: t.title.slice(0, 500), artist: String(t.artist || '').slice(0, 500), kind: t.kind, ytid: t.ytid, isLive: t.isLive === true, artistId: typeof t.artistId === 'string' ? t.artistId : '', duration: Number.isFinite(t.duration) ? t.duration : null, addedAt: Number.isFinite(t.addedAt) ? t.addedAt : 0, downloaded: t.downloaded === true, downloadBytes: Number.isSafeInteger(t.downloadBytes) && t.downloadBytes >= 0 ? t.downloadBytes : 0, url: ['local', 'youtube'].includes(t.kind) ? '' : safeUrl(t.url), artwork: safeUrl(t.artwork), highResArtwork: safeUrl(t.highResArtwork) || safeUrl(t.highResImage) || safeUrl(t.image), filename: String(t.filename || '').slice(0, 500) };
   });
   const ids = new Set(tracks.map(t => t.id));
   if (ids.size !== tracks.length) throw new Error('Duplicate track identifiers in backup.');
   const playlists = value.playlists.map(p => {
     if (typeof p.id !== 'string' || typeof p.name !== 'string' || !Array.isArray(p.tracks)) throw new Error('Invalid playlist in backup.');
-    return { id: p.id.slice(0, 200), name: p.name.slice(0, 120), tracks: [...new Set(p.tracks.filter(id => ids.has(id)))], folderId: typeof p.folderId === 'string' ? p.folderId.slice(0, 200) : '', artwork: safeArtwork(p.artwork), source: safeUrl(p.source), pinned: p.pinned === true, lastSyncedAt: Number.isFinite(p.lastSyncedAt) && p.lastSyncedAt > 0 ? p.lastSyncedAt : 0 };
+    return { id: p.id.slice(0, 200), name: p.name.slice(0, 120), tracks: [...new Set(p.tracks.filter(id => ids.has(id)))], folderId: typeof p.folderId === 'string' ? p.folderId.slice(0, 200) : '', artwork: safeArtwork(p.artwork), source: safeUrl(p.source), pinned: p.pinned === true, hidden: p.hidden === true, lastSyncedAt: Number.isFinite(p.lastSyncedAt) && p.lastSyncedAt > 0 ? p.lastSyncedAt : 0 };
   });
   if (new Set(playlists.map(p => p.id)).size !== playlists.length) throw new Error('Duplicate playlist identifiers.');
   const clean = emptyLibrary();
@@ -42,9 +43,14 @@ export function validateBackup(value) {
     clean.months[key] = { totalSeconds: month.totalSeconds, songs };
   }
   const s = value.settings || {};
-  clean.settings = { ...clean.settings, volume: Number.isFinite(s.volume) ? Math.max(0, Math.min(1, s.volume)) : .8, tv: s.tv === true, repeat: s.repeat === true, repeatOne: s.repeatOne === true, shuffle: s.shuffle === true, smartShuffle: s.shuffle === true && s.smartShuffle === true, localAI: s.localAI !== false, autoPlaylistSync: s.autoPlaylistSync !== false, sponsorBlock: s.sponsorBlock === true, offline: s.offline === true, autoplay: s.autoplay === true, proxy: s.proxy === true, proxyUrl: safeUrl(s.proxyUrl), quality: ['low', 'medium', 'high'].includes(s.quality) ? s.quality : 'high', sort: ['default', 'title', 'artist', 'added'].includes(s.sort) ? s.sort : 'default', theme: ['dark', 'light', 'system', 'black'].includes(s.theme) ? s.theme : 'dark', language: /^[a-z]{2}$/.test(s.language) ? s.language : 'en', accent: /^#[0-9a-f]{6}$/i.test(s.accent) ? s.accent : '#d6f374', dynamicColor: s.dynamicColor !== false, eqEnabled: s.eqEnabled === true, eq: Array.isArray(s.eq) && s.eq.length === 5 ? s.eq.map(g => Number.isFinite(g) ? Math.max(-12, Math.min(12, g)) : 0) : [0, 0, 0, 0, 0] };
-  clean.settings.updateRepository = typeof s.updateRepository === 'string' && /^[\w.-]+\/[\w.-]+$/.test(s.updateRepository) ? s.updateRepository : '';
-  clean.settings.autoUpdates = s.autoUpdates === true;
+  const legacyQuality = ['low', 'medium', 'high'].includes(s.quality) ? s.quality : 'high';
+  const savedAccent = /^#[0-9a-f]{6}$/i.test(s.accent) ? s.accent.toLowerCase() : '#8e80ff';
+  const accent = ['#c5ed9b', '#d6f374', '#1ed760'].includes(savedAccent) ? '#8e80ff' : savedAccent;
+  clean.settings = { ...clean.settings, volume: Number.isFinite(s.volume) ? Math.max(0, Math.min(1, s.volume)) : .8, tv: s.tv === true, auto: s.auto === true, repeat: s.repeat === true, repeatOne: s.repeatOne === true, shuffle: s.shuffle === true, smartShuffle: s.shuffle === true && s.smartShuffle === true, localAI: s.localAI !== false, autoPlaylistSync: s.autoPlaylistSync !== false, sponsorBlock: s.sponsorBlock === true, offline: s.offline === true, autoplay: s.autoplay === true, proxy: s.proxy === true, proxyUrl: safeUrl(s.proxyUrl), streamingQuality: ['low', 'medium', 'high'].includes(s.streamingQuality) ? s.streamingQuality : legacyQuality, downloadQuality: ['low', 'medium', 'high'].includes(s.downloadQuality) ? s.downloadQuality : legacyQuality, sort: ['default', 'title', 'artist', 'added'].includes(s.sort) ? s.sort : 'default', theme: ['dark', 'light', 'system', 'black'].includes(s.theme) ? s.theme : 'dark', language: /^[a-z]{2}$/.test(s.language) ? s.language : 'en', accent, dynamicColor: s.dynamicColor !== false, eqEnabled: s.eqEnabled === true, eq: Array.isArray(s.eq) && s.eq.length === 5 ? s.eq.map(g => Number.isFinite(g) ? Math.max(-12, Math.min(12, g)) : 0) : [0, 0, 0, 0, 0] };
+  clean.settings.updateRepository = typeof s.updateRepository === 'string' && /^[\w.-]+\/[\w.-]+$/.test(s.updateRepository) ? s.updateRepository : 'imcomfyaaaaaa/zonic-music';
+  clean.settings.autoUpdates = s.autoUpdates !== false;
+  clean.settings.normalization = s.normalization === true;
+  clean.settings.lyricsOffsetMs = Number.isFinite(s.lyricsOffsetMs) ? Math.max(-10000, Math.min(10000, Math.round(s.lyricsOffsetMs / 250) * 250)) : 0;
   return clean;
 }
 export function sortTracks(tracks, sort) {
@@ -77,13 +83,13 @@ export function migrateMusify(raw) {
   for (const s of raw.recentlyPlayedSongs || []) { const id = convert(s); if (id) result.history.push(id); }
   const addPlaylist = (p, folderId = '') => {
     if (!p || typeof p !== 'object') return;
-    const id = String(p.ytid || crypto.randomUUID()); if (result.playlists.some(x => x.id === id)) return;
+    const id = String(p.ytid || randomId()); if (result.playlists.some(x => x.id === id)) return;
     const ids = (p.list || []).map(convert).filter(Boolean);
     result.playlists.push({ id, name: String(p.title || 'Imported playlist'), tracks: ids, folderId, artwork: safeUrl(p.image), source: /^PL[\w-]+$/.test(id) ? `https://www.youtube.com/playlist?list=${id}` : '', pinned: (raw.pinnedPlaylistIds || []).includes(id) });
   };
   for (const p of raw.customPlaylists || []) addPlaylist(p);
   for (const p of raw.likedPlaylists || []) { if (p.isArtist || p.type === 'artist') { if (p.ytid) result.artistFavorites.push({ id: p.ytid, name: p.title, artwork: p.image }); } else addPlaylist(p); }
-  for (const f of raw.playlistFolders || []) { const id = String(f.id || crypto.randomUUID()); result.folders.push({ id, name: String(f.name || 'Imported folder') }); for (const p of f.playlists || []) { addPlaylist(p, id); const found = result.playlists.find(x => x.id === p.ytid); if (found) found.folderId = id; } }
+  for (const f of raw.playlistFolders || []) { const id = String(f.id || randomId()); result.folders.push({ id, name: String(f.name || 'Imported folder') }); for (const p of f.playlists || []) { addPlaylist(p, id); const found = result.playlists.find(x => x.id === p.ytid); if (found) found.folderId = id; } }
     const stats = raw.wrappedListeningStats || {};
   const months = { ...(stats.history || {}), ...(stats.currentMonthKey ? { [stats.currentMonthKey]: stats.currentMonth } : {}) };
   for (const [key, m] of Object.entries(months)) { if (!m) continue; const songs = {}; for (const s of Object.values(m.songs || {})) { const id = convert(s); if (id) songs[id] = { seconds: s.seconds || s.listenedSeconds || s.totalSeconds || 0, plays: s.playCount || 0 }; } result.months[key] = { totalSeconds: m.totalSeconds || 0, songs }; }

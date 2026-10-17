@@ -9,16 +9,19 @@
 </head>
 <body>
   <main>
-    <header><span class="mark">♫</span><span>Zonic <small>TV remote</small></span></header>
+    <header><span class="mark">♫</span><span>Zonic <small>Connect</small></span><span id="connection" class="connection">TV offline</span></header>
     <section id="pairing" class="panel">
       <h1>Connect to your TV</h1>
-      <p>Open Zonic Settings on your TV and enter its six digit pairing code.</p>
-      <form id="pair-form"><label for="pin">Pairing code</label><input id="pin" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" required><button class="primary">Connect</button></form>
+      <p>Enter the five-digit code from the Zonic account connected to your TV. Both devices must be on the same Wi-Fi.</p>
+      <form id="pair-form"><label for="pin">Pairing code</label><input id="pin" type="text" inputmode="numeric" pattern="[0-9]{5}" maxlength="5" autocomplete="one-time-code" required><button class="primary">Connect</button></form>
     </section>
     <section id="controls" class="hidden">
-      <div class="panel now"><div id="art" class="art">♫</div><div><small>PLAYING ON TV</small><h1 id="title">Nothing playing</h1><p id="artist">Choose a track on your TV</p></div></div>
-      <div class="panel transport"><div class="buttons"><button id="previous" aria-label="Previous track">⏮</button><button id="play" class="primary" aria-label="Play">▶</button><button id="next" aria-label="Next track">⏭</button></div><div class="range"><span id="elapsed">0:00</span><input id="seek" type="range" min="0" max="100" value="0" aria-label="Seek"><span id="duration">0:00</span></div><label class="range">Volume <input id="volume" type="range" min="0" max="1" step="0.05" value="0.8"></label></div>
-      <section class="panel"><h2>Up next</h2><div id="queue"></div></section>
+      <section class="player"><div id="backdrop" class="backdrop"></div><div id="art" class="art">♫</div><div class="track-copy"><small>PLAYING ON ZONIC TV</small><h1 id="title">Nothing playing</h1><p id="artist">Choose a track on your TV</p></div>
+        <div class="timeline"><input id="seek" type="range" min="0" max="100" value="0" aria-label="Seek"><div><span id="elapsed">0:00</span><span id="duration">0:00</span></div></div>
+        <div class="buttons"><button id="shuffle" class="mode" aria-label="Shuffle" aria-pressed="false">⇄</button><button id="previous" aria-label="Previous track">❮</button><button id="play" class="primary" aria-label="Play">▶</button><button id="next" aria-label="Next track">❯</button><button id="repeat" class="mode" aria-label="Repeat" aria-pressed="false">↻</button></div>
+        <label class="volume"><span>🔊</span><input id="volume" type="range" min="0" max="1" step="0.02" value="0.8" aria-label="TV volume"></label>
+      </section>
+      <section class="panel queue-panel"><div class="section-title"><div><small>PLAYBACK</small><h2>Up next</h2></div><span id="queue-count"></span></div><div id="queue"></div></section>
       <button id="disconnect" class="secondary">Disconnect this phone</button>
     </section>
     <p id="message" role="status" aria-live="polite"></p>

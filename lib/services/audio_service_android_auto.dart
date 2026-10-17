@@ -112,7 +112,7 @@ class AndroidAutoBrowser {
       id: mediaId,
       playable: playable,
       displayTitle: song['title']?.toString(),
-      displaySubtitle: artist.isEmpty ? 'Musify' : artist,
+      displaySubtitle: artist.isEmpty ? 'Zonic' : artist,
     );
   }
 
