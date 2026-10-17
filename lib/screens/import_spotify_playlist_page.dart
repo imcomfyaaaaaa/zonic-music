@@ -7,6 +7,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:musify/extensions/l10n.dart';
 import 'package:musify/main.dart' show logger;
 import 'package:musify/services/artist_service.dart' show ytMusicClient;
+import 'package:musify/services/common_services.dart';
 import 'package:musify/services/playlists_manager.dart';
 import 'package:musify/utilities/flutter_toast.dart';
 import 'package:musify/utilities/formatter.dart';
@@ -163,20 +164,42 @@ class _ImportSpotifyPlaylistPageState extends State<ImportSpotifyPlaylistPage> {
 
     final foundSongs = [
       for (final row in rows)
-        if (foundByIndex[row.index] case final song?) song,
+        if (foundByIndex[row.index] case final song?)
+          Map<String, dynamic>.from(song)
+            ..['spotifyTitle'] = row.title
+            ..['spotifyArtist'] = row.artist,
     ];
 
     if (!mounted) return;
-    final (_, playlistId) = createCustomPlaylist(playlistName, null, context);
-    addSongsInCustomPlaylist(context, playlistId, foundSongs);
+    final normalizedName = playlistName.toLowerCase().replaceAll(
+      RegExp(r'[^a-z0-9]'),
+      '',
+    );
+    final isLikedSongsImport = const {
+      'liked',
+      'likedsongs',
+      'spotifyliked',
+      'spotifylikedsongs',
+    }.contains(normalizedName);
+    String? likedResult;
+    if (isLikedSongsImport) {
+      final merged = await mergeSpotifyLikedSongs(foundSongs);
+      likedResult =
+          'Updated Liked Songs: ${merged.added} added, ${merged.updated} refreshed.';
+    } else {
+      final (_, playlistId) = createCustomPlaylist(playlistName, null, context);
+      addSongsInCustomPlaylist(context, playlistId, foundSongs);
+    }
     setState(() => _isImporting = false);
 
-    final resultText = rateLimited
-        ? '${context.l10n!.spotifyPlaylistImportFailed}\n${context.l10n!.spotifyPlaylistImportResult(foundSongs.length, rows.length)}'
-        : context.l10n!.spotifyPlaylistImportResult(
-            foundSongs.length,
-            rows.length,
-          );
+    final resultText =
+        likedResult ??
+        (rateLimited
+            ? '${context.l10n!.spotifyPlaylistImportFailed}\n${context.l10n!.spotifyPlaylistImportResult(foundSongs.length, rows.length)}'
+            : context.l10n!.spotifyPlaylistImportResult(
+                foundSongs.length,
+                rows.length,
+              ));
     if (missingRows.isNotEmpty) {
       final missingText = missingRows
           .map((row) => '${row.title} - ${row.artist}')

@@ -413,6 +413,63 @@ Future<void> updateSongLikeStatus(
   }
 }
 
+/// Merges tracks resolved from a Spotify “Liked Songs” CSV into Zonic Likes.
+/// A matching title/artist (or YouTube id) is replaced by the newly resolved
+/// track, so Spotify imports can correct an older YouTube match without making
+/// duplicate liked songs. Songs that are not part of this import are retained.
+Future<({int added, int updated})> mergeSpotifyLikedSongs(
+  List<Map> spotifySongs,
+) async {
+  String identity(Map song) {
+    final title =
+        song['title']?.toString().toLowerCase().replaceAll(
+          RegExp(r'[^a-z0-9]+'),
+          '',
+        ) ??
+        '';
+    final artist =
+        song['artist']?.toString().toLowerCase().replaceAll(
+          RegExp(r'[^a-z0-9]+'),
+          '',
+        ) ??
+        '';
+    return '$title|$artist';
+  }
+
+  final remaining = userLikedSongsList.value
+      .whereType<Map>()
+      .map(Map.from)
+      .toList();
+  final merged = <Map>[];
+  var added = 0;
+  var updated = 0;
+  final seen = <String>{};
+  for (final source in spotifySongs) {
+    final song = Map<String, dynamic>.from(source);
+    final key = identity(song);
+    final id = song['ytid']?.toString();
+    if ((key.isEmpty || key == '|') && (id == null || id.isEmpty)) continue;
+    final dedupeKey = key == '|' ? 'id:$id' : key;
+    if (!seen.add(dedupeKey)) continue;
+    final match = remaining.indexWhere(
+      (saved) =>
+          (id != null && id.isNotEmpty && saved['ytid']?.toString() == id) ||
+          identity(saved) == key,
+    );
+    if (match >= 0) {
+      remaining.removeAt(match);
+      updated++;
+    } else {
+      added++;
+    }
+    merged.add(song);
+  }
+  merged.addAll(remaining);
+  userLikedSongsList.value = merged;
+  await addOrUpdateData<List>('user', 'likedSongs', merged);
+  return (added: added, updated: updated);
+}
+
 Future<Map?> _resolveSongForLikedStatus(String songId, Map? songData) async {
   if (songData?['ytid']?.toString() == songId) {
     return Map<String, dynamic>.from(songData!);
