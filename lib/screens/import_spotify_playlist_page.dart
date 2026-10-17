@@ -2,8 +2,8 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:material_ui/material_ui.dart';
 import 'package:musify/extensions/l10n.dart';
 import 'package:musify/main.dart' show logger;
 import 'package:musify/services/artist_service.dart' show ytMusicClient;
@@ -436,23 +436,70 @@ class _ImportSpotifyPlaylistPageState extends State<ImportSpotifyPlaylistPage> {
                 ),
               ),
               const SizedBox(height: 12),
-              TextField(
-                controller: _csvController,
-                enabled: !_isImporting,
-                minLines: 5,
-                maxLines: 10,
-                decoration: InputDecoration(
-                  labelText: context.l10n!.pasteCsv,
-                  hintText: context.l10n!.spotifyCsvHint,
-                  alignLabelWithHint: true,
-                  filled: true,
-                  fillColor: const Color(0xff211f27),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
+              if (_fileName == null)
+                SizedBox(
+                  height: 190,
+                  child: TextField(
+                    controller: _csvController,
+                    enabled: !_isImporting,
+                    expands: true,
+                    minLines: null,
+                    maxLines: null,
+                    textAlignVertical: TextAlignVertical.top,
+                    decoration: InputDecoration(
+                      labelText: context.l10n!.pasteCsv,
+                      hintText: context.l10n!.spotifyCsvHint,
+                      alignLabelWithHint: true,
+                      filled: true,
+                      fillColor: const Color(0xff211f27),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                  ),
+                )
+              else
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xff211f27),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: const Color(0xff3a3742)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        FluentIcons.document_checkmark_24_regular,
+                        color: Color(0xff9d8cff),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _fileName!,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            Text(
+                              '${(_parseCsv(_csvController.text).length - 1).clamp(0, 999999)} songs ready to import',
+                              style: const TextStyle(color: Color(0xffb5b0bf)),
+                            ),
+                          ],
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: _isImporting ? null : _chooseFile,
+                        child: const Text('Change'),
+                      ),
+                    ],
                   ),
                 ),
-              ),
               const SizedBox(height: 16),
               FilledButton.icon(
                 onPressed: _isImporting ? null : _importPlaylist,
