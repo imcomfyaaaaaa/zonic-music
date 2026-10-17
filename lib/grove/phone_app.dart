@@ -9,7 +9,6 @@ import 'package:musify/localization/app_localizations.dart';
 import 'package:musify/main.dart' as musify;
 import 'package:musify/screens/equalizer_page.dart';
 import 'package:musify/screens/import_spotify_playlist_page.dart';
-import 'package:musify/screens/playlist_page.dart';
 import 'package:musify/screens/radio_stations_page.dart';
 import 'package:musify/screens/settings_page.dart';
 import 'package:musify/screens/time_machine_page.dart';
@@ -859,7 +858,9 @@ class _LibraryPage extends StatelessWidget {
               artwork: zonicArtworkUrl(playlist),
               onTap: () => Navigator.of(context).push(
                 MaterialPageRoute(
-                  builder: (_) => PlaylistPage(playlistData: playlist),
+                  builder: (_) => _NativePlaylistPage(
+                    playlistId: playlist['ytid']?.toString() ?? '',
+                  ),
                 ),
               ),
               trailing: IconButton(
@@ -877,6 +878,347 @@ class _LibraryPage extends StatelessWidget {
         ),
       ),
     ],
+  );
+}
+
+class _NativePlaylistPage extends StatefulWidget {
+  const _NativePlaylistPage({required this.playlistId});
+
+  final String playlistId;
+
+  @override
+  State<_NativePlaylistPage> createState() => _NativePlaylistPageState();
+}
+
+class _NativePlaylistPageState extends State<_NativePlaylistPage> {
+  final search = TextEditingController();
+  String query = '';
+
+  @override
+  void dispose() {
+    search.dispose();
+    super.dispose();
+  }
+
+  Future<void> _rename(Map playlist) async {
+    final controller = TextEditingController(
+      text: playlist['title']?.toString() ?? '',
+    );
+    final name = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Rename playlist'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          maxLength: 80,
+          decoration: const InputDecoration(hintText: 'Playlist name'),
+          onSubmitted: (value) => Navigator.pop(dialogContext, value.trim()),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () =>
+                Navigator.pop(dialogContext, controller.text.trim()),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (name == null || name.isEmpty) return;
+    final updated = userCustomPlaylists.value
+        .map((item) => Map<String, dynamic>.from(item))
+        .toList();
+    final index = updated.indexWhere(
+      (item) => item['ytid']?.toString() == widget.playlistId,
+    );
+    if (index < 0) return;
+    updated[index]['title'] = name;
+    userCustomPlaylists.value = updated;
+    await Hive.box('user').put('customPlaylists', updated);
+  }
+
+  Future<void> _addLikedSong(Map playlist) async {
+    final candidates = userLikedSongsList.value.whereType<Map>().toList();
+    if (candidates.isEmpty) {
+      _notice('Like songs first, then add them here.');
+      return;
+    }
+    final selected = await showModalBottomSheet<Map>(
+      context: context,
+      backgroundColor: const Color(0xff17161b),
+      showDragHandle: true,
+      builder: (_) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          padding: const EdgeInsets.fromLTRB(14, 0, 14, 28),
+          children: [
+            const ListTile(
+              title: Text(
+                'Add liked song',
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
+              ),
+              subtitle: Text('Choose a song to add to this playlist.'),
+            ),
+            ...candidates.map(
+              (song) => ListTile(
+                leading: ZonicArtwork(
+                  url: zonicArtworkUrl(song),
+                  size: 46,
+                  radius: 9,
+                ),
+                title: Text(song['title']?.toString() ?? 'Song'),
+                subtitle: Text(song['artist']?.toString() ?? ''),
+                onTap: () => Navigator.pop(context, song),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (selected == null) return;
+    final updated = userCustomPlaylists.value
+        .map((item) => Map<String, dynamic>.from(item))
+        .toList();
+    final index = updated.indexWhere(
+      (item) => item['ytid']?.toString() == widget.playlistId,
+    );
+    if (index < 0) return;
+    final songs = List<Map>.from(updated[index]['list'] as List? ?? const []);
+    final id = selected['ytid']?.toString();
+    if (songs.any((song) => song['ytid']?.toString() == id)) {
+      _notice('That song is already in this playlist.');
+      return;
+    }
+    songs.add(Map<String, dynamic>.from(selected));
+    updated[index]['list'] = songs;
+    userCustomPlaylists.value = updated;
+    await Hive.box('user').put('customPlaylists', updated);
+    _notice('Added to ${playlist['title'] ?? 'playlist'}.');
+  }
+
+  void _notice(String text) =>
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+
+  @override
+  Widget build(BuildContext context) => ValueListenableBuilder<List<Map>>(
+    valueListenable: userCustomPlaylists,
+    builder: (context, allPlaylists, _) {
+      final playlist = allPlaylists.cast<Map?>().firstWhere(
+        (item) => item?['ytid']?.toString() == widget.playlistId,
+        orElse: () => null,
+      );
+      if (playlist == null) {
+        return Scaffold(
+          backgroundColor: zonicBackground,
+          appBar: AppBar(backgroundColor: zonicBackground),
+          body: const Center(
+            child: Text('This playlist is no longer available.'),
+          ),
+        );
+      }
+      final songs = (playlist['list'] as List? ?? const [])
+          .whereType<Map>()
+          .toList();
+      final term = query.trim().toLowerCase();
+      final visible = term.isEmpty
+          ? songs
+          : songs
+                .where(
+                  (song) => '${song['title'] ?? ''} ${song['artist'] ?? ''}'
+                      .toLowerCase()
+                      .contains(term),
+                )
+                .toList();
+      final title = playlist['title']?.toString() ?? 'Playlist';
+      return Scaffold(
+        backgroundColor: zonicBackground,
+        appBar: AppBar(
+          backgroundColor: zonicBackground,
+          foregroundColor: Colors.white,
+          title: const Text('Playlist'),
+          actions: [
+            IconButton(
+              tooltip: 'Rename playlist',
+              onPressed: () => _rename(playlist),
+              icon: const Icon(Icons.edit_rounded),
+            ),
+          ],
+        ),
+        body: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 2, 20, 14),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  ZonicArtwork(
+                    url: zonicArtworkUrl(playlist),
+                    size: 106,
+                    radius: 22,
+                  ),
+                  const SizedBox(width: 18),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        const SizedBox(height: 5),
+                        Text(
+                          '${songs.length} songs · Zonic playlist',
+                          style: const TextStyle(color: zonicMuted),
+                        ),
+                        const SizedBox(height: 12),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            FilledButton.icon(
+                              onPressed: songs.isEmpty
+                                  ? null
+                                  : () => _playList(songs),
+                              icon: const Icon(Icons.play_arrow_rounded),
+                              label: const Text('Play'),
+                            ),
+                            OutlinedButton.icon(
+                              onPressed: songs.isEmpty
+                                  ? null
+                                  : () =>
+                                        musify.audioHandler.addPlaylistToQueue(
+                                          songs,
+                                          replace: true,
+                                          shuffle: true,
+                                        ),
+                              icon: const Icon(Icons.shuffle_rounded),
+                              label: const Text('Shuffle'),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => _addLikedSong(playlist),
+                      icon: const Icon(Icons.playlist_add_rounded),
+                      label: const Text('Add liked song'),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    tooltip: 'Download playlist',
+                    onPressed: songs.isEmpty
+                        ? null
+                        : () => offlinePlaylistService.downloadPlaylist(
+                            context,
+                            playlist,
+                          ),
+                    icon: const Icon(Icons.download_for_offline_outlined),
+                  ),
+                  IconButton(
+                    tooltip: 'Share playlist',
+                    onPressed: () => SharePlus.instance.share(
+                      ShareParams(text: 'Zonic playlist: $title'),
+                    ),
+                    icon: const Icon(Icons.share_rounded),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 10),
+            if (songs.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                child: TextField(
+                  controller: search,
+                  onChanged: (value) => setState(() => query = value),
+                  decoration: InputDecoration(
+                    hintText: 'Search this playlist',
+                    prefixIcon: const Icon(Icons.search_rounded),
+                    filled: true,
+                    fillColor: zonicSurface,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(18),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                ),
+              ),
+            Expanded(
+              child: songs.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.queue_music_rounded,
+                            size: 56,
+                            color: zonicAccent,
+                          ),
+                          const SizedBox(height: 14),
+                          const Text(
+                            'This playlist is ready for music.',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          const Text(
+                            'Add songs you have liked, then play them here.',
+                            style: TextStyle(color: zonicMuted),
+                          ),
+                          const SizedBox(height: 18),
+                          FilledButton.icon(
+                            onPressed: () => _addLikedSong(playlist),
+                            icon: const Icon(Icons.add_rounded),
+                            label: const Text('Add a song'),
+                          ),
+                        ],
+                      ),
+                    )
+                  : visible.isEmpty
+                  ? const Center(
+                      child: Text(
+                        'No matching songs.',
+                        style: TextStyle(color: zonicMuted),
+                      ),
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.fromLTRB(12, 0, 12, 30),
+                      itemCount: visible.length,
+                      itemBuilder: (_, index) => _SongTile(
+                        song: visible[index],
+                        onTap: () => musify.audioHandler.playBrowserPlaylist(
+                          visible,
+                          songIndex: index,
+                        ),
+                      ),
+                    ),
+            ),
+          ],
+        ),
+      );
+    },
   );
 }
 
