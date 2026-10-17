@@ -32,6 +32,14 @@ class ZonicTvApp extends StatelessWidget {
       focusColor: const Color(0xff9d8cff),
       hoverColor: const Color(0x229d8cff),
       textTheme: ThemeData.dark().textTheme.apply(fontFamily: 'Roboto'),
+      appBarTheme: const AppBarTheme(
+        backgroundColor: zonicBackground,
+        elevation: 0,
+      ),
+      dialogTheme: DialogThemeData(
+        backgroundColor: const Color(0xff211f27),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      ),
     ),
     home: _TvHome(server: server),
   );
@@ -125,13 +133,38 @@ class _TvHomeState extends State<_TvHome> {
     ),
   );
 
-  Widget _header() => Padding(
-    padding: const EdgeInsets.fromLTRB(48, 24, 48, 12),
+  Widget _header() => Container(
+    margin: const EdgeInsets.fromLTRB(32, 20, 32, 4),
+    padding: const EdgeInsets.fromLTRB(22, 12, 18, 12),
+    decoration: BoxDecoration(
+      color: const Color(0x99141218),
+      borderRadius: BorderRadius.circular(24),
+      border: Border.all(color: const Color(0xff302d37)),
+    ),
     child: Row(
       children: [
-        const Text(
-          'zonic',
-          style: TextStyle(fontSize: 38, fontWeight: FontWeight.w900),
+        RichText(
+          text: TextSpan(
+            style: TextStyle(
+              fontSize: 38,
+              fontWeight: FontWeight.w900,
+              letterSpacing: -1.5,
+            ),
+            children: [
+              TextSpan(
+                text: 'z',
+                style: TextStyle(color: Colors.white),
+              ),
+              TextSpan(
+                text: 'o',
+                style: TextStyle(color: Color(0xffbc8cff)),
+              ),
+              TextSpan(
+                text: 'nic',
+                style: TextStyle(color: Colors.white),
+              ),
+            ],
+          ),
         ),
         const SizedBox(width: 44),
         _nav('Home', 0, Icons.home_rounded),

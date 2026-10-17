@@ -6,6 +6,7 @@ import 'package:musify/main.dart' as musify;
 
 const zonicBackground = Color(0xff09090b);
 const zonicSurface = Color(0xff211f27);
+const zonicSurfaceRaised = Color(0xff2a2732);
 const zonicAccent = Color(0xff9d8cff);
 const zonicMuted = Color(0xffb5b0bf);
 
@@ -61,24 +62,42 @@ class _ZonicSurfaceButtonState extends State<ZonicSurfaceButton> {
       behavior: HitTestBehavior.opaque,
       onTap: widget.onPressed,
       child: AnimatedScale(
-        scale: focused ? 1.035 : 1,
+        scale: focused ? 1.028 : 1,
         duration: const Duration(milliseconds: 110),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 110),
           padding: widget.padding,
           decoration: BoxDecoration(
-            color: focused
-                ? const Color(0xfff4f1ff)
+            gradient: focused
+                ? const LinearGradient(
+                    colors: [Color(0xfffaf9ff), Color(0xffddd7ff)],
+                  )
                 : widget.selected
-                ? zonicAccent
-                : zonicSurface,
+                ? const LinearGradient(
+                    colors: [Color(0xffa594ff), Color(0xff755fe5)],
+                  )
+                : const LinearGradient(
+                    colors: [Color(0xff292631), Color(0xff1d1b22)],
+                  ),
             borderRadius: BorderRadius.circular(widget.borderRadius),
             border: Border.all(
-              color: focused ? Colors.white : const Color(0xff35323e),
+              color: focused
+                  ? Colors.white
+                  : widget.selected
+                  ? const Color(0xffb9adff)
+                  : const Color(0xff3a3742),
               width: focused ? 3 : 1,
             ),
             boxShadow: focused
-                ? const [BoxShadow(color: Color(0x669d8cff), blurRadius: 18)]
+                ? const [
+                    BoxShadow(
+                      color: Color(0x669d8cff),
+                      blurRadius: 20,
+                      spreadRadius: 1,
+                    ),
+                  ]
+                : widget.selected
+                ? const [BoxShadow(color: Color(0x33755fe5), blurRadius: 14)]
                 : null,
           ),
           child: DefaultTextStyle.merge(
@@ -112,7 +131,14 @@ class ZonicArtwork extends StatelessWidget {
     child: Container(
       width: size,
       height: size,
-      color: const Color(0xff292631),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xff373242), Color(0xff17161d)],
+        ),
+        border: Border.all(color: const Color(0x443f3a4b)),
+      ),
       child: url == null
           ? const Icon(Icons.music_note_rounded, size: 42, color: zonicAccent)
           : Image.network(
@@ -143,62 +169,79 @@ class ZonicMiniPlayer extends StatelessWidget {
       final song = musify.audioHandler.currentSong;
       final playing = snapshot.data?.playing == true;
       return Material(
-        color: const Color(0xff25232b),
+        color: Colors.transparent,
         borderRadius: BorderRadius.circular(16),
         clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onExpand,
-          child: SizedBox(
-            height: 72,
-            child: Row(
-              children: [
-                const SizedBox(width: 8),
-                ZonicArtwork(url: zonicArtworkUrl(song), size: 56, radius: 11),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        song?['title']?.toString() ??
-                            'Choose something to play',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
+        child: Ink(
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xff302d39), Color(0xff201e27)],
+            ),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xff45404d)),
+          ),
+          child: InkWell(
+            onTap: onExpand,
+            child: SizedBox(
+              height: 72,
+              child: Row(
+                children: [
+                  const SizedBox(width: 8),
+                  ZonicArtwork(
+                    url: zonicArtworkUrl(song),
+                    size: 56,
+                    radius: 11,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          song?['title']?.toString() ??
+                              'Choose something to play',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        song?['artist']?.toString() ?? 'Zonic',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 13, color: zonicMuted),
-                      ),
-                    ],
+                        const SizedBox(height: 3),
+                        Text(
+                          song?['artist']?.toString() ?? 'Zonic',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: zonicMuted,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                IconButton(
-                  tooltip: playing ? 'Pause' : 'Play',
-                  onPressed: () => unawaited(
-                    playing
-                        ? musify.audioHandler.pause()
-                        : musify.audioHandler.play(),
+                  IconButton(
+                    tooltip: playing ? 'Pause' : 'Play',
+                    onPressed: () => unawaited(
+                      playing
+                          ? musify.audioHandler.pause()
+                          : musify.audioHandler.play(),
+                    ),
+                    icon: Icon(
+                      playing ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                      size: 32,
+                    ),
                   ),
-                  icon: Icon(
-                    playing ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                    size: 32,
+                  IconButton(
+                    tooltip: 'Next',
+                    onPressed: () =>
+                        unawaited(musify.audioHandler.skipToNext()),
+                    icon: const Icon(Icons.skip_next_rounded, size: 30),
                   ),
-                ),
-                IconButton(
-                  tooltip: 'Next',
-                  onPressed: () => unawaited(musify.audioHandler.skipToNext()),
-                  icon: const Icon(Icons.skip_next_rounded, size: 30),
-                ),
-                const SizedBox(width: 4),
-              ],
+                  const SizedBox(width: 4),
+                ],
+              ),
             ),
           ),
         ),
@@ -222,8 +265,9 @@ class ZonicPhoneNavigation extends StatelessWidget {
     height: 68,
     selectedIndex: index,
     onDestinationSelected: onChanged,
-    backgroundColor: const Color(0xff111114),
+    backgroundColor: const Color(0xff121116),
     indicatorColor: const Color(0xff6f5ee8),
+    elevation: 0,
     destinations: const [
       NavigationDestination(
         icon: Icon(Icons.home_outlined),

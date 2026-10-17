@@ -63,6 +63,37 @@ class _ZonicPhoneAppState extends State<ZonicPhoneApp> {
       navigationBarTheme: const NavigationBarThemeData(
         labelTextStyle: WidgetStatePropertyAll(TextStyle(fontSize: 11)),
       ),
+      appBarTheme: const AppBarTheme(
+        backgroundColor: zonicBackground,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        centerTitle: false,
+      ),
+      cardTheme: CardThemeData(
+        color: zonicSurface,
+        elevation: 0,
+        margin: EdgeInsets.zero,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: const BorderSide(color: Color(0xff35323e)),
+        ),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: zonicSurface,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 14,
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide.none,
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: zonicAccent, width: 2),
+        ),
+      ),
     ),
     home: Builder(
       builder: (context) {
@@ -124,10 +155,7 @@ class _PhoneHeader extends StatelessWidget {
     padding: const EdgeInsets.fromLTRB(20, 10, 12, 8),
     child: Row(
       children: [
-        const Text(
-          'zonic',
-          style: TextStyle(fontSize: 36, fontWeight: FontWeight.w900),
-        ),
+        const _ZonicWordmark(fontSize: 36),
         const Spacer(),
         IconButton(
           tooltip: 'Queue',
@@ -138,6 +166,36 @@ class _PhoneHeader extends StatelessWidget {
           tooltip: 'Account, sync, imports and settings',
           onPressed: onSettings,
           icon: const Icon(Icons.settings_rounded),
+        ),
+      ],
+    ),
+  );
+}
+
+class _ZonicWordmark extends StatelessWidget {
+  const _ZonicWordmark({required this.fontSize});
+  final double fontSize;
+
+  @override
+  Widget build(BuildContext context) => RichText(
+    text: TextSpan(
+      style: TextStyle(
+        fontSize: fontSize,
+        fontWeight: FontWeight.w900,
+        letterSpacing: -1.5,
+      ),
+      children: const [
+        TextSpan(
+          text: 'z',
+          style: TextStyle(color: Colors.white),
+        ),
+        TextSpan(
+          text: 'o',
+          style: TextStyle(color: Color(0xffbc8cff)),
+        ),
+        TextSpan(
+          text: 'nic',
+          style: TextStyle(color: Colors.white),
         ),
       ],
     ),
