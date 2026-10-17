@@ -13,7 +13,6 @@ import 'package:musify/screens/playlist_page.dart';
 import 'package:musify/screens/radio_stations_page.dart';
 import 'package:musify/screens/settings_page.dart';
 import 'package:musify/screens/time_machine_page.dart';
-import 'package:musify/screens/user_songs_page.dart';
 import 'package:musify/services/artist_service.dart';
 import 'package:musify/services/common_services.dart';
 import 'package:musify/services/playlist_download_service.dart';
@@ -444,7 +443,10 @@ class _AdvancedFeatures extends StatelessWidget {
           icon: Icons.history_rounded,
           title: 'Listening history',
           subtitle: 'Songs you recently played',
-          onTap: () => _open(context, const UserSongsPage(page: 'recent')),
+          onTap: () => _open(
+            context,
+            const _NativeCollectionPage(kind: _CollectionKind.recent),
+          ),
         ),
         _AdvancedTile(
           icon: Icons.auto_graph_rounded,
@@ -462,7 +464,10 @@ class _AdvancedFeatures extends StatelessWidget {
           icon: Icons.download_done_rounded,
           title: 'Downloaded songs',
           subtitle: 'Manage music available offline',
-          onTap: () => _open(context, const UserSongsPage(page: 'offline')),
+          onTap: () => _open(
+            context,
+            const _NativeCollectionPage(kind: _CollectionKind.offline),
+          ),
         ),
         _AdvancedTile(
           icon: Icons.table_view_rounded,
@@ -823,7 +828,8 @@ class _LibraryPage extends StatelessWidget {
           icon: Icons.favorite_rounded,
           onTap: () => Navigator.of(context).push(
             MaterialPageRoute(
-              builder: (_) => const UserSongsPage(page: 'liked'),
+              builder: (_) =>
+                  const _NativeCollectionPage(kind: _CollectionKind.liked),
             ),
           ),
           trailing: IconButton(
@@ -871,6 +877,203 @@ class _LibraryPage extends StatelessWidget {
         ),
       ),
     ],
+  );
+}
+
+enum _CollectionKind { liked, recent, offline }
+
+class _NativeCollectionPage extends StatefulWidget {
+  const _NativeCollectionPage({required this.kind});
+
+  final _CollectionKind kind;
+
+  @override
+  State<_NativeCollectionPage> createState() => _NativeCollectionPageState();
+}
+
+class _NativeCollectionPageState extends State<_NativeCollectionPage> {
+  final search = TextEditingController();
+  String query = '';
+
+  ValueNotifier<List> get source => switch (widget.kind) {
+    _CollectionKind.liked => userLikedSongsList,
+    _CollectionKind.recent => userRecentlyPlayed,
+    _CollectionKind.offline => userOfflineSongs,
+  };
+
+  String get title => switch (widget.kind) {
+    _CollectionKind.liked => 'Liked Songs',
+    _CollectionKind.recent => 'Recently played',
+    _CollectionKind.offline => 'Downloads',
+  };
+
+  IconData get icon => switch (widget.kind) {
+    _CollectionKind.liked => Icons.favorite_rounded,
+    _CollectionKind.recent => Icons.history_rounded,
+    _CollectionKind.offline => Icons.download_done_rounded,
+  };
+
+  @override
+  void dispose() {
+    search.dispose();
+    super.dispose();
+  }
+
+  Future<void> _downloadAll(List<Map> songs) async {
+    if (songs.isEmpty) return;
+    await offlinePlaylistService.downloadPlaylist(context, {
+      'ytid': 'zonic-liked-songs',
+      'title': 'Liked Songs',
+      'source': 'liked',
+      'list': songs,
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    backgroundColor: zonicBackground,
+    appBar: AppBar(
+      backgroundColor: zonicBackground,
+      foregroundColor: Colors.white,
+      title: Text(title),
+    ),
+    body: ValueListenableBuilder<List>(
+      valueListenable: source,
+      builder: (context, values, _) {
+        final allSongs = values.whereType<Map>().toList();
+        final normalized = query.trim().toLowerCase();
+        final songs = normalized.isEmpty
+            ? allSongs
+            : allSongs.where((song) {
+                final text = '${song['title'] ?? ''} ${song['artist'] ?? ''}'
+                    .toLowerCase();
+                return text.contains(normalized);
+              }).toList();
+        return Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 14),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 72,
+                        height: 72,
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xff7968ef), Color(0xffff6680)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Icon(icon, size: 34, color: Colors.white),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              title,
+                              style: const TextStyle(
+                                fontSize: 27,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              '${allSongs.length} songs',
+                              style: const TextStyle(color: zonicMuted),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: FilledButton.icon(
+                          onPressed: allSongs.isEmpty
+                              ? null
+                              : () => _playList(allSongs),
+                          icon: const Icon(Icons.play_arrow_rounded),
+                          label: const Text('Play'),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: allSongs.isEmpty
+                              ? null
+                              : () => musify.audioHandler.addPlaylistToQueue(
+                                  allSongs,
+                                  replace: true,
+                                  shuffle: true,
+                                ),
+                          icon: const Icon(Icons.shuffle_rounded),
+                          label: const Text('Shuffle'),
+                        ),
+                      ),
+                      if (widget.kind == _CollectionKind.liked) ...[
+                        const SizedBox(width: 6),
+                        IconButton(
+                          tooltip: 'Download all',
+                          onPressed: allSongs.isEmpty
+                              ? null
+                              : () => _downloadAll(allSongs),
+                          icon: const Icon(Icons.download_for_offline_outlined),
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: search,
+                    onChanged: (value) => setState(() => query = value),
+                    decoration: InputDecoration(
+                      hintText: 'Search $title',
+                      prefixIcon: const Icon(Icons.search_rounded),
+                      filled: true,
+                      fillColor: zonicSurface,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(18),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: songs.isEmpty
+                  ? Center(
+                      child: Text(
+                        normalized.isEmpty
+                            ? 'No songs here yet.'
+                            : 'No matching songs.',
+                        style: const TextStyle(color: zonicMuted),
+                      ),
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.fromLTRB(12, 0, 12, 30),
+                      itemCount: songs.length,
+                      itemBuilder: (_, index) => _SongTile(
+                        song: songs[index],
+                        onTap: () => musify.audioHandler.playBrowserPlaylist(
+                          songs,
+                          songIndex: index,
+                        ),
+                      ),
+                    ),
+            ),
+          ],
+        );
+      },
+    ),
   );
 }
 
