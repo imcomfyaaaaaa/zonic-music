@@ -22,8 +22,13 @@ class GroveActivity : AudioServiceActivity() {
       if (call.method == "info") {
         val mode = getSystemService(Context.UI_MODE_SERVICE) as UiModeManager
         val accent = if (Build.VERSION.SDK_INT >= 31) getColor(android.R.color.system_accent1_200) else 0xffc5ed9b.toInt()
-        val isTv = mode.currentModeType == Configuration.UI_MODE_TYPE_TELEVISION || packageManager.hasSystemFeature(PackageManager.FEATURE_LEANBACK)
-        val isAuto = mode.currentModeType == Configuration.UI_MODE_TYPE_CAR || packageManager.hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE)
+        // ADB-only development overrides make it possible to test the real TV
+        // and Automotive branches on a phone. Normal launches still depend on
+        // the actual device mode/features.
+        val forceTv = intent?.getBooleanExtra("zonic_force_tv", false) == true
+        val forceAuto = intent?.getBooleanExtra("zonic_force_auto", false) == true
+        val isTv = forceTv || mode.currentModeType == Configuration.UI_MODE_TYPE_TELEVISION || packageManager.hasSystemFeature(PackageManager.FEATURE_LEANBACK)
+        val isAuto = forceAuto || mode.currentModeType == Configuration.UI_MODE_TYPE_CAR || packageManager.hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE)
         result.success(mapOf("tv" to isTv, "auto" to isAuto, "accent" to String.format("#%06X", accent and 0xffffff)))
       } else if (call.method == "requestNotifications") {
         if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
