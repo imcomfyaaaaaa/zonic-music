@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
+import 'package:http/http.dart' as http;
 import 'package:musify/grove/native_account.dart';
 import 'package:musify/grove/native_widgets.dart';
 import 'package:musify/localization/app_localizations.dart';
@@ -1667,6 +1669,14 @@ class _SongTile extends StatelessWidget {
   );
 }
 
+class _TimedLyric {
+  const _TimedLyric(this.time, this.text, {this.estimated = false});
+
+  final Duration time;
+  final String text;
+  final bool estimated;
+}
+
 class _LyricsPage extends StatefulWidget {
   const _LyricsPage({required this.song});
   final Map song;
@@ -1675,32 +1685,223 @@ class _LyricsPage extends StatefulWidget {
 }
 
 class _LyricsPageState extends State<_LyricsPage> {
-  late final Future<String?> value = getSongLyrics(
-    widget.song['artist']?.toString(),
-    widget.song['title']?.toString() ?? '',
-  );
+  final scroll = ScrollController();
+  StreamSubscription<Duration>? positionSubscription;
+  List<_TimedLyric> lines = const [];
+  List<GlobalKey> lineKeys = const [];
+  bool loading = true;
+  bool autoScroll = true;
+  bool estimated = false;
+  int activeIndex = -1;
+
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Lyrics')),
-    body: FutureBuilder<String?>(
-      future: value,
-      builder: (_, snapshot) {
-        if (snapshot.connectionState != ConnectionState.done) {
-          return const Center(child: CircularProgressIndicator());
+  void initState() {
+    super.initState();
+    unawaited(_load());
+    positionSubscription = musify.audioHandler.audioPlayer.positionStream
+        .listen(_updatePosition);
+  }
+
+  @override
+  void dispose() {
+    unawaited(positionSubscription?.cancel());
+    scroll.dispose();
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    final artist = widget.song['artist']?.toString();
+    final title = widget.song['title']?.toString() ?? '';
+    String? raw;
+    var hasSyncedTiming = false;
+    if (artist != null && artist.trim().isNotEmpty && title.trim().isNotEmpty) {
+      try {
+        final duration = musify.audioHandler.audioPlayer.duration?.inSeconds;
+        final parameters = <String, String>{
+          'artist_name': artist.length > 200
+              ? artist.substring(0, 200)
+              : artist,
+          'track_name': title.length > 300 ? title.substring(0, 300) : title,
+          if (duration != null && duration > 0) 'duration': '$duration',
+        };
+        final response = await http
+            .get(Uri.https('lrclib.net', '/api/get', parameters))
+            .timeout(const Duration(seconds: 7));
+        if (response.statusCode == 200) {
+          final body = jsonDecode(response.body);
+          if (body is Map && body['syncedLyrics'] is String) {
+            raw = body['syncedLyrics'] as String;
+            hasSyncedTiming = true;
+          }
         }
-        return SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(28, 20, 28, 60),
-          child: Text(
-            snapshot.data ?? 'Lyrics are not available for this song.',
-            style: const TextStyle(
-              fontSize: 25,
-              height: 1.45,
-              fontWeight: FontWeight.w700,
-            ),
+      } catch (_) {
+        // Fall back to the existing lyrics provider below.
+      }
+    }
+    raw ??= await getSongLyrics(artist, title);
+    final parsed = _parseLyrics(raw, musify.audioHandler.audioPlayer.duration);
+    if (!mounted) return;
+    setState(() {
+      lines = parsed.$1;
+      estimated = parsed.$2 || !hasSyncedTiming;
+      lineKeys = List<GlobalKey>.generate(lines.length, (_) => GlobalKey());
+      loading = false;
+    });
+    _updatePosition(musify.audioHandler.audioPlayer.position);
+  }
+
+  (List<_TimedLyric>, bool) _parseLyrics(String? raw, Duration? duration) {
+    final source = (raw ?? '').split(RegExp(r'\r?\n'));
+    final timed = <_TimedLyric>[];
+    final stamp = RegExp(r'\[(\d{1,2}):(\d{2}(?:\.\d+)?)\]');
+    for (final row in source) {
+      final matches = stamp.allMatches(row).toList();
+      final text = row.replaceAll(RegExp(r'\[[^\]]+\]'), '').trim();
+      if (text.isEmpty || matches.isEmpty) continue;
+      for (final match in matches) {
+        final minutes = int.tryParse(match.group(1) ?? '') ?? 0;
+        final seconds = double.tryParse(match.group(2) ?? '') ?? 0;
+        timed.add(
+          _TimedLyric(
+            Duration(milliseconds: ((minutes * 60 + seconds) * 1000).round()),
+            text,
           ),
         );
-      },
+      }
+    }
+    if (timed.isNotEmpty) {
+      timed.sort((a, b) => a.time.compareTo(b.time));
+      return (timed, false);
+    }
+    final plain = source
+        .map((line) => line.trim())
+        .where((line) => line.isNotEmpty && !line.startsWith('©'))
+        .toList();
+    final total = (duration?.inMilliseconds ?? 180000).clamp(20000, 3600000);
+    final start = total < 200000 ? (total * .06).round() : 12000;
+    final endPadding = total < 250000 ? (total * .04).round() : 10000;
+    final usable = (total - start - endPadding).clamp(1000, total);
+    return (
+      List<_TimedLyric>.generate(
+        plain.length,
+        (index) => _TimedLyric(
+          Duration(
+            milliseconds:
+                start +
+                (usable * index / (plain.length <= 1 ? 1 : plain.length - 1))
+                    .round(),
+          ),
+          plain[index],
+          estimated: true,
+        ),
+      ),
+      true,
+    );
+  }
+
+  void _updatePosition(Duration position) {
+    if (!mounted || lines.isEmpty) return;
+    var next = -1;
+    for (var index = 0; index < lines.length; index++) {
+      if (lines[index].time <= position + const Duration(milliseconds: 150)) {
+        next = index;
+      } else {
+        break;
+      }
+    }
+    if (next == activeIndex) return;
+    setState(() => activeIndex = next);
+    if (autoScroll && next >= 0) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final target = lineKeys[next].currentContext;
+        if (target != null && mounted && autoScroll) {
+          Scrollable.ensureVisible(
+            target,
+            duration: const Duration(milliseconds: 420),
+            curve: Curves.easeOutCubic,
+            alignment: .42,
+          );
+        }
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(
+      title: const Text('Lyrics'),
+      actions: [
+        IconButton(
+          tooltip: autoScroll ? 'Auto-scroll on' : 'Auto-scroll off',
+          color: autoScroll ? zonicAccent : null,
+          onPressed: () => setState(() => autoScroll = !autoScroll),
+          icon: const Icon(Icons.auto_mode_rounded),
+        ),
+      ],
     ),
+    body: loading
+        ? const Center(child: CircularProgressIndicator())
+        : lines.isEmpty
+        ? const Center(
+            child: Text(
+              'Lyrics are not available for this song.',
+              style: TextStyle(color: zonicMuted),
+            ),
+          )
+        : Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 8, 24, 4),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        estimated ? 'Estimated timing' : 'Synchronized lyrics',
+                        style: const TextStyle(color: zonicMuted),
+                      ),
+                    ),
+                    Text(
+                      autoScroll ? 'Auto-scroll on' : 'Auto-scroll off',
+                      style: TextStyle(
+                        color: autoScroll ? zonicAccent : zonicMuted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: ListView.builder(
+                  controller: scroll,
+                  padding: const EdgeInsets.fromLTRB(28, 56, 28, 140),
+                  itemCount: lines.length,
+                  itemBuilder: (_, index) {
+                    final line = lines[index];
+                    final active = index == activeIndex;
+                    final passed = index < activeIndex;
+                    return Padding(
+                      key: lineKeys[index],
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      child: Text(
+                        line.text,
+                        style: TextStyle(
+                          fontSize: active ? 29 : 24,
+                          height: 1.27,
+                          fontWeight: active
+                              ? FontWeight.w900
+                              : FontWeight.w700,
+                          color: active
+                              ? Colors.white
+                              : passed
+                              ? const Color(0xff8b8695)
+                              : const Color(0xffc2bdca),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
   );
 }
 
