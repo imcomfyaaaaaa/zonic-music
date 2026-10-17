@@ -35,47 +35,41 @@ import 'package:musify/services/settings_manager.dart';
 import 'package:musify/utilities/url_launcher.dart';
 import 'package:musify/widgets/auto_format_text.dart';
 
-const String checkUrl =
-    'https://raw.githubusercontent.com/gokadzev/Musify/update/check.json';
 const String releasesUrl =
-    'https://api.github.com/repos/gokadzev/Musify/releases/latest';
+    'https://api.github.com/repos/imcomfyaaaaaa/zonic-music/releases/latest';
 const String downloadUrlKey = 'url';
 const String downloadUrlArm64Key = 'arm64url';
 const String downloadFilename = 'Zonic.apk';
 
-Future<void> checkAppUpdates() async {
+Future<void> checkAppUpdates([BuildContext? displayContext]) async {
   try {
-    final response = await http.get(Uri.parse(checkUrl));
-
-    if (response.statusCode != 200) {
-      logger.log(
-        'Fetch update API (checkUrl) call returned status code ${response.statusCode}',
-      );
-      return;
-    }
-
-    final map = json.decode(response.body) as Map<String, dynamic>;
-    announcementURL.value = map['announcementurl'];
-    final latestVersion = map['version'].toString();
-
-    if (!isLatestVersionHigher(appVersion, latestVersion)) {
-      return;
-    }
-
     final releasesRequest = await http.get(Uri.parse(releasesUrl));
-
     if (releasesRequest.statusCode != 200) {
       logger.log(
-        'Fetch update API (releasesUrl) call returned status code ${response.statusCode}',
+        'Fetch Zonic release returned status code ${releasesRequest.statusCode}',
       );
       return;
     }
-
     final releasesResponse =
         json.decode(releasesRequest.body) as Map<String, dynamic>;
+    final latestVersion = (releasesResponse['tag_name']?.toString() ?? '')
+        .replaceFirst(RegExp(r'^v', caseSensitive: false), '');
+    if (latestVersion.isEmpty ||
+        !isLatestVersionHigher(appVersion, latestVersion))
+      return;
+    final assets = (releasesResponse['assets'] as List? ?? const []);
+    final apk = assets.cast<Map?>().firstWhere(
+      (asset) =>
+          asset?['name']?.toString().toLowerCase().endsWith('.apk') == true,
+      orElse: () => null,
+    );
+    final downloadUrl =
+        apk?['browser_download_url']?.toString() ??
+        releasesResponse['html_url']?.toString();
+    if (downloadUrl == null || downloadUrl.isEmpty) return;
 
     await showDialog(
-      context: NavigationManager().context,
+      context: displayContext ?? NavigationManager().context,
       builder: (BuildContext context) {
         final colorScheme = Theme.of(context).colorScheme;
 
@@ -155,9 +149,8 @@ Future<void> checkAppUpdates() async {
             ),
             FilledButton.icon(
               onPressed: () {
-                getDownloadUrl(map).then(
-                  (url) => {launchURL(Uri.parse(url)), Navigator.pop(context)},
-                );
+                launchURL(Uri.parse(downloadUrl));
+                Navigator.pop(context);
               },
               icon: const Icon(FluentIcons.arrow_download_20_regular),
               label: Text(context.l10n!.download),
@@ -274,26 +267,6 @@ Future<String> getDownloadUrl(Map<String, dynamic> map) async {
 /// fetching or any update dialogs/downloads and is safe to call for F‑Droid
 /// builds where update prompts are not allowed.
 Future<void> fetchAnnouncementOnly() async {
-  try {
-    final response = await http.get(Uri.parse(checkUrl));
-
-    if (response.statusCode != 200) {
-      logger.log(
-        'Fetch announcement (checkUrl) call returned status code ${response.statusCode}',
-      );
-      return;
-    }
-
-    final map = json.decode(response.body) as Map<String, dynamic>;
-    final ann = map['announcementurl'];
-    if (ann != null) {
-      announcementURL.value = ann.toString();
-    }
-  } catch (e, stackTrace) {
-    logger.log(
-      'Error in fetchAnnouncementOnly',
-      error: e,
-      stackTrace: stackTrace,
-    );
-  }
+  // Zonic no longer uses a separate announcement file. Releases are checked
+  // directly from the project’s GitHub API by checkAppUpdates().
 }

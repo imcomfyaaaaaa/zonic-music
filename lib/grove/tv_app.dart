@@ -10,6 +10,7 @@ import 'package:musify/main.dart' as musify;
 import 'package:musify/services/common_services.dart';
 import 'package:musify/services/playlists_manager.dart';
 import 'package:musify/services/settings_manager.dart';
+import 'package:musify/services/update_manager.dart';
 
 class ZonicTvApp extends StatelessWidget {
   const ZonicTvApp({super.key, required this.server});
@@ -61,6 +62,11 @@ class _TvHomeState extends State<_TvHome> {
     userOfflineSongs.addListener(_libraryChanged);
     userRecentlyPlayed.addListener(_libraryChanged);
     if (account.signedIn) _applyAccountPairingCode();
+    if (!offlineMode.value) {
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => checkAppUpdates(context),
+      );
+    }
   }
 
   void _libraryChanged() {
@@ -321,6 +327,12 @@ class _TvHomeState extends State<_TvHome> {
         'Open the Zonic TV link on your phone, then enter the five-digit code shown here. Both devices must be on the same Wi-Fi.',
         Icons.phonelink_rounded,
         _showPhoneLink,
+      ),
+      _settingsCard(
+        'App updates',
+        'Zonic checks its GitHub releases automatically. Check again now whenever you want.',
+        Icons.system_update_rounded,
+        () => checkAppUpdates(context),
       ),
       _settingsCard(
         'Music search',

@@ -22,6 +22,7 @@ import 'package:musify/services/data_manager.dart';
 import 'package:musify/services/playlist_download_service.dart';
 import 'package:musify/services/playlists_manager.dart';
 import 'package:musify/services/settings_manager.dart';
+import 'package:musify/services/update_manager.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -34,6 +35,15 @@ class ZonicPhoneApp extends StatefulWidget {
 
 class _ZonicPhoneAppState extends State<ZonicPhoneApp> {
   int index = 0;
+  bool _checkedForUpdate = false;
+
+  void _autoCheck(BuildContext context) {
+    if (_checkedForUpdate || offlineMode.value) return;
+    _checkedForUpdate = true;
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => checkAppUpdates(context),
+    );
+  }
 
   @override
   Widget build(BuildContext context) => MaterialApp(
@@ -55,48 +65,51 @@ class _ZonicPhoneAppState extends State<ZonicPhoneApp> {
       ),
     ),
     home: Builder(
-      builder: (context) => Scaffold(
-        body: SafeArea(
-          bottom: false,
-          child: Column(
+      builder: (context) {
+        _autoCheck(context);
+        return Scaffold(
+          body: SafeArea(
+            bottom: false,
+            child: Column(
+              children: [
+                _PhoneHeader(
+                  onSettings: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const _NativeSettings()),
+                  ),
+                ),
+                Expanded(
+                  child: IndexedStack(
+                    index: index,
+                    children: const [
+                      _HomePage(),
+                      _BrowsePage(),
+                      _ArtistsPage(),
+                      _LibraryPage(),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          bottomNavigationBar: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              _PhoneHeader(
-                onSettings: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const _NativeSettings()),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(8, 0, 8, 4),
+                child: ZonicMiniPlayer(
+                  onExpand: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const _FullPlayer()),
+                  ),
                 ),
               ),
-              Expanded(
-                child: IndexedStack(
-                  index: index,
-                  children: const [
-                    _HomePage(),
-                    _BrowsePage(),
-                    _ArtistsPage(),
-                    _LibraryPage(),
-                  ],
-                ),
+              ZonicPhoneNavigation(
+                index: index,
+                onChanged: (value) => setState(() => index = value),
               ),
             ],
           ),
-        ),
-        bottomNavigationBar: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(8, 0, 8, 4),
-              child: ZonicMiniPlayer(
-                onExpand: () => Navigator.of(
-                  context,
-                ).push(MaterialPageRoute(builder: (_) => const _FullPlayer())),
-              ),
-            ),
-            ZonicPhoneNavigation(
-              index: index,
-              onChanged: (value) => setState(() => index = value),
-            ),
-          ],
-        ),
-      ),
+        );
+      },
     ),
   );
 }
@@ -303,6 +316,24 @@ class _NativeSettingsState extends State<_NativeSettings> {
                 title: const Text('Offline mode'),
                 value: offlineMode.value,
                 onChanged: (value) => _save('offlineMode', offlineMode, value),
+              ),
+            ],
+          ),
+        ),
+        _SettingsCard(
+          title: 'App updates',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text(
+                'Zonic checks GitHub releases automatically when the app opens.',
+                style: TextStyle(color: zonicMuted),
+              ),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: () => checkAppUpdates(context),
+                icon: const Icon(Icons.system_update_rounded),
+                label: const Text('Check for updates now'),
               ),
             ],
           ),
