@@ -26,7 +26,7 @@ import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:material_ui/material_ui.dart';
-import 'package:musify/constants/version.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:musify/extensions/l10n.dart';
 import 'package:musify/main.dart';
 import 'package:musify/services/data_manager.dart';
@@ -41,12 +41,22 @@ const String downloadUrlKey = 'url';
 const String downloadUrlArm64Key = 'arm64url';
 const String downloadFilename = 'Zonic.apk';
 
-Future<void> checkAppUpdates([BuildContext? displayContext]) async {
+Future<void> checkAppUpdates({
+  BuildContext? displayContext,
+  bool showNoUpdate = false,
+}) async {
   try {
-    final releasesRequest = await http.get(Uri.parse(releasesUrl));
+    final releasesRequest = await http
+        .get(Uri.parse(releasesUrl))
+        .timeout(const Duration(seconds: 12));
     if (releasesRequest.statusCode != 200) {
       logger.log(
         'Fetch Zonic release returned status code ${releasesRequest.statusCode}',
+      );
+      _showUpdateMessage(
+        displayContext,
+        'Could not check for updates. Please try again later.',
+        show: showNoUpdate,
       );
       return;
     }
@@ -54,9 +64,16 @@ Future<void> checkAppUpdates([BuildContext? displayContext]) async {
         json.decode(releasesRequest.body) as Map<String, dynamic>;
     final latestVersion = (releasesResponse['tag_name']?.toString() ?? '')
         .replaceFirst(RegExp(r'^v', caseSensitive: false), '');
+    final installedVersion = (await PackageInfo.fromPlatform()).version;
     if (latestVersion.isEmpty ||
-        !isLatestVersionHigher(appVersion, latestVersion))
+        !isLatestVersionHigher(installedVersion, latestVersion)) {
+      _showUpdateMessage(
+        displayContext,
+        'Zonic is up to date (v$installedVersion).',
+        show: showNoUpdate,
+      );
       return;
+    }
     final assets = (releasesResponse['assets'] as List? ?? const []);
     final apk = assets.cast<Map?>().firstWhere(
       (asset) =>
@@ -66,7 +83,14 @@ Future<void> checkAppUpdates([BuildContext? displayContext]) async {
     final downloadUrl =
         apk?['browser_download_url']?.toString() ??
         releasesResponse['html_url']?.toString();
-    if (downloadUrl == null || downloadUrl.isEmpty) return;
+    if (downloadUrl == null || downloadUrl.isEmpty) {
+      _showUpdateMessage(
+        displayContext,
+        'An update was found, but its download is not ready yet.',
+        show: showNoUpdate,
+      );
+      return;
+    }
 
     await showDialog(
       context: displayContext ?? NavigationManager().context,
@@ -161,7 +185,21 @@ Future<void> checkAppUpdates([BuildContext? displayContext]) async {
     );
   } catch (e, stackTrace) {
     logger.log('Error in checkAppUpdates', error: e, stackTrace: stackTrace);
+    _showUpdateMessage(
+      displayContext,
+      'Could not check for updates. Please try again later.',
+      show: showNoUpdate,
+    );
   }
+}
+
+void _showUpdateMessage(
+  BuildContext? context,
+  String message, {
+  required bool show,
+}) {
+  if (!show || context == null || !context.mounted) return;
+  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
 }
 
 void showUpdateCheckDialog(BuildContext context) {

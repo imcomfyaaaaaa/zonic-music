@@ -72,7 +72,7 @@ class _TvHomeState extends State<_TvHome> {
     if (account.signedIn) _applyAccountPairingCode();
     if (!offlineMode.value) {
       WidgetsBinding.instance.addPostFrameCallback(
-        (_) => checkAppUpdates(context),
+        (_) => checkAppUpdates(displayContext: context),
       );
     }
   }
@@ -365,7 +365,7 @@ class _TvHomeState extends State<_TvHome> {
         'App updates',
         'Zonic checks its GitHub releases automatically. Check again now whenever you want.',
         Icons.system_update_rounded,
-        () => checkAppUpdates(context),
+        () => checkAppUpdates(displayContext: context, showNoUpdate: true),
       ),
       _settingsCard(
         'Music search',

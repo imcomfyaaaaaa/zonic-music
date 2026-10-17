@@ -41,7 +41,7 @@ class _ZonicPhoneAppState extends State<ZonicPhoneApp> {
     if (_checkedForUpdate || offlineMode.value) return;
     _checkedForUpdate = true;
     WidgetsBinding.instance.addPostFrameCallback(
-      (_) => checkAppUpdates(context),
+      (_) => checkAppUpdates(displayContext: context),
     );
   }
 
@@ -389,7 +389,10 @@ class _NativeSettingsState extends State<_NativeSettings> {
               ),
               const SizedBox(height: 12),
               OutlinedButton.icon(
-                onPressed: () => checkAppUpdates(context),
+                onPressed: () => checkAppUpdates(
+                  displayContext: context,
+                  showNoUpdate: true,
+                ),
                 icon: const Icon(Icons.system_update_rounded),
                 label: const Text('Check for updates now'),
               ),
