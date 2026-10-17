@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:audio_service/audio_service.dart';
+import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
 import 'package:http/http.dart' as http;
@@ -16,15 +18,15 @@ import 'package:musify/screens/settings_page.dart';
 import 'package:musify/screens/time_machine_page.dart';
 import 'package:musify/services/artist_service.dart';
 import 'package:musify/services/common_services.dart';
+import 'package:musify/services/data_manager.dart';
 import 'package:musify/services/playlist_download_service.dart';
 import 'package:musify/services/playlists_manager.dart';
 import 'package:musify/services/settings_manager.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class ZonicPhoneApp extends StatefulWidget {
-  const ZonicPhoneApp({super.key, required this.legacyBuilder});
-
-  final WidgetBuilder legacyBuilder;
+  const ZonicPhoneApp({super.key});
 
   @override
   State<ZonicPhoneApp> createState() => _ZonicPhoneAppState();
@@ -60,10 +62,7 @@ class _ZonicPhoneAppState extends State<ZonicPhoneApp> {
             children: [
               _PhoneHeader(
                 onSettings: () => Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) =>
-                        _NativeSettings(legacyBuilder: widget.legacyBuilder),
-                  ),
+                  MaterialPageRoute(builder: (_) => const _NativeSettings()),
                 ),
               ),
               Expanded(
@@ -133,8 +132,7 @@ class _PhoneHeader extends StatelessWidget {
 }
 
 class _NativeSettings extends StatefulWidget {
-  const _NativeSettings({required this.legacyBuilder});
-  final WidgetBuilder legacyBuilder;
+  const _NativeSettings();
   @override
   State<_NativeSettings> createState() => _NativeSettingsState();
 }
@@ -321,10 +319,7 @@ class _NativeSettingsState extends State<_NativeSettings> {
               const SizedBox(height: 12),
               FilledButton.icon(
                 onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) =>
-                        _AdvancedFeatures(legacyBuilder: widget.legacyBuilder),
-                  ),
+                  MaterialPageRoute(builder: (_) => const _AdvancedFeatures()),
                 ),
                 icon: const Icon(Icons.tune_rounded),
                 label: const Text('Open advanced features'),
@@ -338,14 +333,16 @@ class _NativeSettingsState extends State<_NativeSettings> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'Dropbox, backup, and playlist imports remain available during their native migration.',
+                'Import YouTube playlists, back up your library, and connect Dropbox without opening the old web interface.',
                 style: TextStyle(color: zonicMuted),
               ),
               const SizedBox(height: 12),
               FilledButton.icon(
-                onPressed: () =>
-                    Navigator.of(context)
-                        .push(MaterialPageRoute(builder: widget.legacyBuilder)),
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const _NativeTransferPage(),
+                  ),
+                ),
                 icon: const Icon(Icons.swap_horiz_rounded),
                 label: const Text('Open transfer tools'),
               ),
@@ -358,9 +355,7 @@ class _NativeSettingsState extends State<_NativeSettings> {
 }
 
 class _AdvancedFeatures extends StatelessWidget {
-  const _AdvancedFeatures({required this.legacyBuilder});
-
-  final WidgetBuilder legacyBuilder;
+  const _AdvancedFeatures();
 
   void _open(BuildContext context, Widget page) =>
       Navigator.of(context).push(MaterialPageRoute(builder: (_) => page));
@@ -486,7 +481,7 @@ class _AdvancedFeatures extends StatelessWidget {
           icon: Icons.cloud_sync_rounded,
           title: 'Cloud, backup & YouTube import',
           subtitle: 'Dropbox sync, archives and linked playlist transfers',
-          onTap: () => _open(context, Builder(builder: legacyBuilder)),
+          onTap: () => _open(context, const _NativeTransferPage()),
         ),
       ],
     ),
@@ -2170,6 +2165,432 @@ void _showQueue(BuildContext context) {
             onTap: () => musify.audioHandler.skipToQueueItem(entry.key),
           ),
         ),
+      ],
+    ),
+  );
+}
+
+/// Native replacement for the former WebView transfer screen. Dropbox uses the
+/// system browser only for its own authentication page; Zonic handles the
+/// callback, sync and library changes itself.
+class _NativeTransferPage extends StatefulWidget {
+  const _NativeTransferPage();
+  @override
+  State<_NativeTransferPage> createState() => _NativeTransferPageState();
+}
+
+class _NativeTransferPageState extends State<_NativeTransferPage> {
+  static const _dropboxKey = 'zonicDropboxAuth';
+  final _account = ZonicAccountService();
+  StreamSubscription<Uri?>? _links;
+  bool _busy = false;
+  String _dropboxState = 'Not connected';
+
+  @override
+  void initState() {
+    super.initState();
+    _links = musify.appLinks.uriLinkStream.listen(_onLink);
+    unawaited(_loadDropbox());
+  }
+
+  @override
+  void dispose() {
+    _links?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _loadDropbox() async {
+    if (!_account.signedIn) {
+      if (mounted)
+        setState(() => _dropboxState = 'Sign in to Zonic to connect Dropbox');
+      return;
+    }
+    try {
+      final saved = await _account.readPrivate('dropbox');
+      if (mounted)
+        setState(
+          () => _dropboxState = saved == null
+              ? 'Not connected'
+              : 'Connected to your Zonic account',
+        );
+    } catch (_) {
+      if (mounted) setState(() => _dropboxState = 'Connection needs attention');
+    }
+  }
+
+  void _toast(String message) =>
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(message)));
+
+  Future<void> _importYoutube() async {
+    final controller = TextEditingController();
+    final link = await showDialog<String>(
+      context: context,
+      builder: (dialog) => AlertDialog(
+        title: const Text('Import YouTube playlist'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(
+            hintText: 'Paste a YouTube playlist link',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialog),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialog, controller.text.trim()),
+            child: const Text('Import'),
+          ),
+        ],
+      ),
+    );
+    if (link == null || link.isEmpty) return;
+    setState(() => _busy = true);
+    final result = await addUserPlaylist(link, context);
+    if (mounted) {
+      setState(() => _busy = false);
+      _toast(result);
+    }
+  }
+
+  Future<void> _backup() async {
+    setState(() => _busy = true);
+    final result = await backupData(context);
+    if (mounted) {
+      setState(() => _busy = false);
+      _toast(result.message);
+    }
+  }
+
+  Future<void> _restore() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (dialog) => AlertDialog(
+        title: const Text('Restore library?'),
+        content: const Text(
+          'This replaces this device’s Zonic library and settings with the selected backup.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialog, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialog, true),
+            child: const Text('Restore'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+    setState(() => _busy = true);
+    final result = await restoreData(context);
+    if (mounted) {
+      setState(() => _busy = false);
+      _toast(result.message);
+    }
+  }
+
+  String _random(int length) {
+    const chars =
+        'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~';
+    final random = Random.secure();
+    return List.generate(
+      length,
+      (_) => chars[random.nextInt(chars.length)],
+    ).join();
+  }
+
+  Future<void> _connectDropbox() async {
+    if (!_account.signedIn) {
+      _toast('Sign in to your Zonic account first.');
+      return;
+    }
+    final verifier = _random(72), state = 'n.${_random(32)}';
+    await Hive.box('userNoBackup')
+        .put(_dropboxKey, {'verifier': verifier, 'state': state});
+    final uri = Uri.https('www.dropbox.com', '/oauth2/authorize', {
+      'client_id': 'bpdb3vsvzzdgzk7',
+      'response_type': 'code',
+      'redirect_uri': 'https://zonic-music.web.app/dropbox-callback',
+      'code_challenge': base64Url
+          .encode(sha256.convert(utf8.encode(verifier)).bytes)
+          .replaceAll('=', ''),
+      'code_challenge_method': 'S256',
+      'token_access_type': 'offline',
+      'state': state,
+    });
+    final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!opened && mounted) _toast('Could not open Dropbox sign-in.');
+  }
+
+  Future<void> _onLink(Uri? uri) async {
+    if (uri == null ||
+        uri.scheme != 'grove' ||
+        uri.host != 'dropbox' ||
+        uri.path != '/callback')
+      return;
+    final code = uri.queryParameters['code'],
+        state = uri.queryParameters['state'];
+    final saved = Hive.box('userNoBackup').get(_dropboxKey);
+    if (code == null || saved is! Map || state != saved['state']) {
+      if (mounted) _toast('Dropbox sign-in could not be verified. Try again.');
+      return;
+    }
+    setState(() => _busy = true);
+    try {
+      final response = await http.post(
+        Uri.parse('https://api.dropboxapi.com/oauth2/token'),
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: {
+          'code': code,
+          'grant_type': 'authorization_code',
+          'client_id': 'bpdb3vsvzzdgzk7',
+          'redirect_uri': 'https://zonic-music.web.app/dropbox-callback',
+          'code_verifier': saved['verifier'].toString(),
+        },
+      );
+      final data = jsonDecode(response.body) as Map;
+      if (response.statusCode != 200 || data['refresh_token'] == null)
+        throw StateError(
+          data['error_description']?.toString() ?? 'Dropbox sign-in failed.',
+        );
+      await _account.writePrivate(
+        'dropbox',
+        jsonEncode({'version': 2, 'refreshToken': data['refresh_token']}),
+      );
+      await Hive.box('userNoBackup').delete(_dropboxKey);
+      if (mounted) {
+        setState(() => _dropboxState = 'Connected to your Zonic account');
+        _toast('Dropbox connected.');
+      }
+    } catch (error) {
+      if (mounted) _toast(error.toString());
+    }
+    if (mounted) setState(() => _busy = false);
+  }
+
+  Future<String> _dropboxAccessToken() async {
+    final raw = await _account.readPrivate('dropbox');
+    if (raw == null) throw StateError('Connect Dropbox first.');
+    final saved = jsonDecode(raw) as Map;
+    final refresh = saved['refreshToken']?.toString();
+    if (refresh == null || refresh.isEmpty)
+      throw StateError('Reconnect Dropbox to continue.');
+    final response = await http.post(
+      Uri.parse('https://api.dropboxapi.com/oauth2/token'),
+      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+      body: {
+        'refresh_token': refresh,
+        'grant_type': 'refresh_token',
+        'client_id': 'bpdb3vsvzzdgzk7',
+      },
+    );
+    final value = jsonDecode(response.body) as Map;
+    if (response.statusCode != 200 || value['access_token'] == null)
+      throw StateError(
+        value['error_description']?.toString() ?? 'Dropbox session expired.',
+      );
+    return value['access_token'].toString();
+  }
+
+  List<Map<String, Object?>> _cloudPlaylists() => userCustomPlaylists.value
+      .map(
+        (playlist) => <String, Object?>{
+          'id': playlist['ytid']?.toString() ?? '',
+          'name': playlist['title']?.toString() ?? 'Untitled playlist',
+          'artwork': playlist['image']?.toString(),
+          'source': playlist['source']?.toString() ?? 'user-created',
+          'tracks': (playlist['list'] as List? ?? const [])
+              .map(
+                (song) => song is Map
+                    ? Map<String, Object?>.from(
+                        song.map(
+                          (key, value) => MapEntry(key.toString(), value),
+                        ),
+                      )
+                    : <String, Object?>{},
+              )
+              .toList(),
+        },
+      )
+      .toList();
+
+  Future<void> _pushDropbox() async {
+    setState(() => _busy = true);
+    try {
+      final response = await http.post(
+        Uri.parse('https://content.dropboxapi.com/2/files/upload'),
+        headers: {
+          'Authorization': 'Bearer ${await _dropboxAccessToken()}',
+          'Content-Type': 'application/octet-stream',
+          'Dropbox-API-Arg': jsonEncode({
+            'path': '/zonic-playlists.json',
+            'mode': 'overwrite',
+            'autorename': false,
+            'mute': true,
+          }),
+        },
+        body: jsonEncode({
+          'schemaVersion': 2,
+          'updatedAt': DateTime.now().millisecondsSinceEpoch,
+          'playlists': _cloudPlaylists(),
+        }),
+      );
+      if (response.statusCode < 200 || response.statusCode >= 300)
+        throw StateError('Could not upload playlists to Dropbox.');
+      if (mounted) _toast('Playlists synced to Dropbox.');
+    } catch (error) {
+      if (mounted) _toast(error.toString());
+    }
+    if (mounted) setState(() => _busy = false);
+  }
+
+  Future<void> _pullDropbox() async {
+    setState(() => _busy = true);
+    try {
+      final response = await http.post(
+        Uri.parse('https://content.dropboxapi.com/2/files/download'),
+        headers: {
+          'Authorization': 'Bearer ${await _dropboxAccessToken()}',
+          'Dropbox-API-Arg': jsonEncode({'path': '/zonic-playlists.json'}),
+        },
+      );
+      if (response.statusCode == 409)
+        throw StateError('No Zonic playlist backup was found in Dropbox.');
+      final data = jsonDecode(response.body) as Map;
+      final remote = (data['playlists'] as List? ?? const []).whereType<Map>();
+      final existing = List<Map>.from(userCustomPlaylists.value);
+      var imported = 0;
+      for (final item in remote) {
+        final id = item['id']?.toString();
+        if (id == null ||
+            id.isEmpty ||
+            existing.any((p) => p['ytid']?.toString() == id))
+          continue;
+        existing.add({
+          'ytid': id,
+          'title': item['name']?.toString() ?? 'Imported playlist',
+          'image': item['artwork'],
+          'source': item['source'] ?? 'user-created',
+          'list': List<Map>.from(
+            (item['tracks'] as List? ?? const []).whereType<Map>(),
+          ),
+        });
+        imported++;
+      }
+      userCustomPlaylists.value = existing;
+      await addOrUpdateData<List>('user', 'customPlaylists', existing);
+      if (mounted)
+        _toast(
+          imported == 0
+              ? 'Your library is already up to date.'
+              : 'Imported $imported playlist${imported == 1 ? '' : 's'} from Dropbox.',
+        );
+    } catch (error) {
+      if (mounted) _toast(error.toString());
+    }
+    if (mounted) setState(() => _busy = false);
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: const Text('Transfer & sync')),
+    body: Stack(
+      children: [
+        ListView(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+          children: [
+            const Text(
+              'Bring your music to Zonic',
+              style: TextStyle(fontSize: 25, fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'Every option below is a native Zonic screen.',
+              style: TextStyle(color: zonicMuted),
+            ),
+            const SizedBox(height: 18),
+            _AdvancedTile(
+              icon: Icons.playlist_add_rounded,
+              title: 'Import YouTube playlist',
+              subtitle: 'Use the playlist name from YouTube and keep it linked',
+              onTap: _importYoutube,
+            ),
+            _AdvancedTile(
+              icon: Icons.table_view_rounded,
+              title: 'Import Spotify CSV',
+              subtitle: 'Create an editable Zonic playlist from your export',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const ImportSpotifyPlaylistPage(),
+                ),
+              ),
+            ),
+            _AdvancedTile(
+              icon: Icons.backup_outlined,
+              title: 'Back up library',
+              subtitle: 'Save your playlists and settings on this device',
+              onTap: _backup,
+            ),
+            _AdvancedTile(
+              icon: Icons.restore_rounded,
+              title: 'Restore library',
+              subtitle: 'Restore a Zonic backup file',
+              onTap: _restore,
+            ),
+            const SizedBox(height: 12),
+            const Divider(),
+            const SizedBox(height: 12),
+            const Text(
+              'Dropbox playlist sync',
+              style: TextStyle(fontSize: 21, fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 6),
+            Text(_dropboxState, style: const TextStyle(color: zonicMuted)),
+            const SizedBox(height: 12),
+            FilledButton.icon(
+              onPressed: _connectDropbox,
+              icon: const Icon(Icons.cloud_done_rounded),
+              label: Text(
+                _dropboxState.startsWith('Connected')
+                    ? 'Reconnect Dropbox'
+                    : 'Connect Dropbox',
+              ),
+            ),
+            if (_dropboxState.startsWith('Connected')) ...[
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _pullDropbox,
+                      icon: const Icon(Icons.cloud_download_outlined),
+                      label: const Text('Get from Dropbox'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _pushDropbox,
+                      icon: const Icon(Icons.cloud_upload_outlined),
+                      label: const Text('Sync to Dropbox'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+            const SizedBox(height: 8),
+            const Text(
+              'Dropbox sign-in opens in your browser for safety, then returns directly to this page. Its connection is saved to your Zonic account, so no recovery key is needed.',
+              style: TextStyle(color: zonicMuted, fontSize: 12),
+            ),
+          ],
+        ),
+        if (_busy) const Center(child: CircularProgressIndicator()),
       ],
     ),
   );

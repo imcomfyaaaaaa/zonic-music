@@ -146,6 +146,93 @@ class ZonicAccountService {
     await Hive.box('userNoBackup').delete(_sessionKey);
   }
 
+  /// Stores account-scoped settings (such as a Dropbox refresh token). Firestore
+  /// rules limit this document to the signed-in user; playlist content remains
+  /// normal, shareable library data as requested.
+  Future<void> writePrivate(String name, String payload) async {
+    final active = await _freshSession();
+    final url = Uri.parse(
+      'https://firestore.googleapis.com/v1/projects/$projectId/databases/(default)/documents/users/${active.uid}/private/$name',
+    );
+    final response = await _client.patch(
+      url,
+      headers: {
+        'Authorization': 'Bearer ${active.idToken}',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({
+        'fields': {
+          'payload': {'stringValue': payload},
+        },
+      }),
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw StateError('Could not save your secure account connection.');
+    }
+  }
+
+  Future<String?> readPrivate(String name) async {
+    final active = await _freshSession();
+    final url = Uri.parse(
+      'https://firestore.googleapis.com/v1/projects/$projectId/databases/(default)/documents/users/${active.uid}/private/$name',
+    );
+    final response = await _client.get(
+      url,
+      headers: {'Authorization': 'Bearer ${active.idToken}'},
+    );
+    if (response.statusCode == 404) return null;
+    if (response.statusCode != 200)
+      throw StateError('Could not read your account connection.');
+    return (jsonDecode(
+      response.body,
+    ) as Map)['fields']?['payload']?['stringValue']?.toString();
+  }
+
+  Future<void> deletePrivate(String name) async {
+    final active = await _freshSession();
+    final url = Uri.parse(
+      'https://firestore.googleapis.com/v1/projects/$projectId/databases/(default)/documents/users/${active.uid}/private/$name',
+    );
+    final response = await _client.delete(
+      url,
+      headers: {'Authorization': 'Bearer ${active.idToken}'},
+    );
+    if (response.statusCode != 200 &&
+        response.statusCode != 204 &&
+        response.statusCode != 404) {
+      throw StateError('Could not disconnect the account connection.');
+    }
+  }
+
+  Future<ZonicAccountSession> _freshSession() async {
+    final current = session;
+    if (current == null)
+      throw StateError('Sign in to your Zonic account first.');
+    if (current.expiresAt > DateTime.now().millisecondsSinceEpoch + 60000)
+      return current;
+    final response = await _client.post(
+      Uri.parse('https://securetoken.googleapis.com/v1/token?key=$apiKey'),
+      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+      body:
+          'grant_type=refresh_token&refresh_token=${Uri.encodeQueryComponent(current.refreshToken)}',
+    );
+    final data = jsonDecode(response.body) as Map;
+    if (response.statusCode != 200)
+      throw StateError('Your sign-in session expired. Please sign in again.');
+    session = ZonicAccountSession(
+      idToken: data['id_token'].toString(),
+      refreshToken: data['refresh_token'].toString(),
+      uid: data['user_id'].toString(),
+      email: current.email,
+      expiresAt:
+          DateTime.now().millisecondsSinceEpoch +
+          (int.tryParse(data['expires_in']?.toString() ?? '') ?? 3600) * 1000,
+      pairingCode: current.pairingCode,
+    );
+    await Hive.box('userNoBackup').put(_sessionKey, session!.toJson());
+    return session!;
+  }
+
   String _message(String? code) => switch (code?.split(' : ').first) {
     'EMAIL_EXISTS' => 'That email is already registered.',
     'EMAIL_NOT_FOUND' => 'No account was found for that email.',

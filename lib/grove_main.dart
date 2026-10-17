@@ -95,7 +95,7 @@ class ZonicApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) => server.platform['tv'] == true
       ? ZonicTvApp(server: server)
-      : ZonicPhoneApp(legacyBuilder: (_) => GroveWebShell(server: server));
+      : const ZonicPhoneApp();
 }
 
 class ZonicStartupFailure extends StatelessWidget {
