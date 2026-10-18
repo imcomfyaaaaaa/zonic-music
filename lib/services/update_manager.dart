@@ -157,41 +157,15 @@ Future<void> checkAppUpdates({
   bool showNoUpdate = false,
 }) async {
   final context = displayContext ?? NavigationManager().context;
-  if (showNoUpdate && context.mounted) {
-    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-      const SnackBar(content: Text('Checking GitHub for Zonic updates…')),
-    );
+  if (showNoUpdate) {
+    if (context.mounted) await _showManualUpdateCheck(context);
+    return;
   }
   try {
     final release = await fetchLatestZonicRelease();
     final installedVersion = (await PackageInfo.fromPlatform()).version;
     if (!context.mounted) return;
-    ScaffoldMessenger.maybeOf(context)?.hideCurrentSnackBar();
     if (!isLatestVersionHigher(installedVersion, release.version)) {
-      if (showNoUpdate) {
-        await showDialog<void>(
-          context: context,
-          builder: (dialogContext) => AlertDialog(
-            title: const Text('Zonic is up to date'),
-            content: Text(
-              'Installed: v$installedVersion\nLatest on GitHub: v${release.version}',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(dialogContext),
-                child: const Text('Close'),
-              ),
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(dialogContext);
-                  launchURL(Uri.parse(release.pageUrl));
-                },
-                child: const Text('View release'),
-              ),
-            ],
-          ),
-        );
-      }
       return;
     }
     if (release.apkUrl.isEmpty) {
@@ -315,6 +289,92 @@ Future<void> checkAppUpdates({
       show: showNoUpdate,
     );
   }
+}
+
+Future<void> _showManualUpdateCheck(BuildContext context) async {
+  final check = () async {
+    final release = await fetchLatestZonicRelease();
+    final installed = (await PackageInfo.fromPlatform()).version;
+    return (release: release, installed: installed);
+  }();
+
+  await showDialog<void>(
+    context: context,
+    builder: (dialogContext) => FutureBuilder(
+      future: check,
+      builder: (dialogContext, snapshot) {
+        final result = snapshot.data;
+        final error = snapshot.error;
+        final hasUpdate =
+            result != null &&
+            isLatestVersionHigher(result.installed, result.release.version);
+        return AlertDialog(
+          title: Text(
+            error != null
+                ? 'Could not check for updates'
+                : result == null
+                ? 'Checking for updates…'
+                : hasUpdate
+                ? 'Zonic update available'
+                : 'Zonic is up to date',
+          ),
+          content: error != null
+              ? Text(
+                  'Could not reach GitHub. Check your connection and try again.\n\n$error',
+                )
+              : result == null
+              ? const Row(
+                  children: [
+                    CircularProgressIndicator(),
+                    SizedBox(width: 20),
+                    Expanded(child: Text('Checking GitHub releases…')),
+                  ],
+                )
+              : Text(
+                  'Installed: v${result.installed}\n'
+                  'Latest on GitHub: v${result.release.version}',
+                ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Close'),
+            ),
+            if (error != null)
+              TextButton(
+                onPressed: () => launchURL(
+                  Uri.parse(
+                    'https://github.com/imcomfyaaaaaa/zonic-music/releases/latest',
+                  ),
+                ),
+                child: const Text('Open releases'),
+              ),
+            if (hasUpdate && result.release.apkUrl.isNotEmpty)
+              FilledButton(
+                onPressed: () {
+                  Navigator.pop(dialogContext);
+                  if (Platform.isAndroid) {
+                    showZonicUpdateInstaller(
+                      context,
+                      version: result.release.version,
+                      url: result.release.apkUrl,
+                      digest: result.release.digest,
+                    );
+                  } else {
+                    launchURL(Uri.parse(result.release.apkUrl));
+                  }
+                },
+                child: const Text('Download & install'),
+              ),
+            if (hasUpdate && result.release.apkUrl.isEmpty)
+              TextButton(
+                onPressed: () => launchURL(Uri.parse(result.release.pageUrl)),
+                child: const Text('View release'),
+              ),
+          ],
+        );
+      },
+    ),
+  );
 }
 
 void _showUpdateMessage(
