@@ -18,7 +18,6 @@ import 'package:musify/screens/equalizer_page.dart';
 import 'package:musify/screens/import_spotify_playlist_page.dart';
 import 'package:musify/screens/radio_stations_page.dart';
 import 'package:musify/screens/time_machine_page.dart';
-import 'package:musify/services/artist_service.dart';
 import 'package:musify/services/common_services.dart';
 import 'package:musify/services/data_manager.dart';
 import 'package:musify/services/io_service.dart';
@@ -176,7 +175,7 @@ class _ZonicPhoneAppState extends State<ZonicPhoneApp> {
                     children: const [
                       _HomePage(),
                       _BrowsePage(),
-                      _ArtistsPage(),
+                      RadioStationsPage(showAppBar: false),
                       _LibraryPage(),
                     ],
                   ),
@@ -799,91 +798,6 @@ class _BrowsePageState extends State<_BrowsePage> {
   );
 }
 
-class _ArtistsPage extends StatefulWidget {
-  const _ArtistsPage();
-
-  @override
-  State<_ArtistsPage> createState() => _ArtistsPageState();
-}
-
-class _ArtistsPageState extends State<_ArtistsPage> {
-  final controller = TextEditingController();
-  List<Map<String, dynamic>> artists = [];
-  bool loading = false;
-
-  @override
-  void dispose() {
-    controller.dispose();
-    super.dispose();
-  }
-
-  Future<void> search() async {
-    if (controller.text.trim().isEmpty) return;
-    setState(() => loading = true);
-    final value = await searchVerifiedArtists(controller.text, limit: 20);
-    if (mounted) {
-      setState(() {
-        artists = value;
-        loading = false;
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) => ListView(
-    padding: const EdgeInsets.fromLTRB(20, 14, 20, 30),
-    children: [
-      const Text(
-        'Artists',
-        style: TextStyle(fontSize: 31, fontWeight: FontWeight.w800),
-      ),
-      const SizedBox(height: 14),
-      TextField(
-        controller: controller,
-        onSubmitted: (_) => search(),
-        decoration: InputDecoration(
-          hintText: 'Search artists',
-          prefixIcon: const Icon(Icons.person_search_rounded),
-          suffixIcon: IconButton(
-            onPressed: search,
-            icon: const Icon(Icons.search),
-          ),
-          filled: true,
-          fillColor: zonicSurface,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(18),
-            borderSide: BorderSide.none,
-          ),
-        ),
-      ),
-      if (loading)
-        const Padding(
-          padding: EdgeInsets.all(30),
-          child: Center(child: CircularProgressIndicator()),
-        ),
-      ...artists.map(
-        (artist) => ListTile(
-          contentPadding: const EdgeInsets.symmetric(vertical: 6),
-          leading: ClipOval(
-            child: ZonicArtwork(
-              url: zonicArtworkUrl(artist),
-              size: 54,
-              radius: 27,
-            ),
-          ),
-          title: Text(
-            artist['title']?.toString() ??
-                artist['name']?.toString() ??
-                'Artist',
-          ),
-          subtitle: const Text('Artist', style: TextStyle(color: zonicMuted)),
-          trailing: const Icon(Icons.chevron_right_rounded),
-        ),
-      ),
-    ],
-  );
-}
-
 class _LibraryPage extends StatelessWidget {
   const _LibraryPage();
 
@@ -1378,11 +1292,6 @@ class _NativePlaylistPageState extends State<_NativePlaylistPage> {
             ),
           ],
         ),
-        bottomNavigationBar: ZonicMiniPlayerBar(
-          onExpand: () =>
-              Navigator.of(context)
-                  .push(MaterialPageRoute(builder: (_) => const _FullPlayer())),
-        ),
         body: Column(
           children: [
             Padding(
@@ -1635,11 +1544,6 @@ class _NativeCollectionPageState extends State<_NativeCollectionPage> {
       backgroundColor: zonicBackground,
       foregroundColor: Colors.white,
       title: Text(title),
-    ),
-    bottomNavigationBar: ZonicMiniPlayerBar(
-      onExpand: () =>
-          Navigator.of(context)
-              .push(MaterialPageRoute(builder: (_) => const _FullPlayer())),
     ),
     body: ValueListenableBuilder<List>(
       valueListenable: source,
@@ -1897,6 +1801,7 @@ class _FullPlayer extends StatelessWidget {
     stream: musify.audioHandler.playbackState,
     builder: (context, state) {
       final song = musify.audioHandler.currentSong;
+      final isRadio = song?['isLive'] == true;
       final playing = state.data?.playing == true;
       return Scaffold(
         appBar: AppBar(
@@ -1942,48 +1847,58 @@ class _FullPlayer extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 18),
-                StreamBuilder<Duration>(
-                  stream: musify.audioHandler.audioPlayer.positionStream,
-                  builder: (_, position) {
-                    final duration =
-                        musify.audioHandler.audioPlayer.duration ??
-                        Duration.zero;
-                    final max = duration.inMilliseconds
-                        .toDouble()
-                        .clamp(1.0, double.infinity)
-                        .toDouble();
-                    return Slider(
-                      value:
-                          position.data?.inMilliseconds
-                              .toDouble()
-                              .clamp(0, max)
-                              .toDouble() ??
-                          0,
-                      max: max,
-                      onChanged: (value) => musify.audioHandler.seek(
-                        Duration(milliseconds: value.round()),
-                      ),
-                    );
-                  },
-                ),
+                if (isRadio)
+                  const Center(
+                    child: Chip(
+                      avatar: Icon(Icons.radio_rounded, size: 18),
+                      label: Text('LIVE RADIO'),
+                    ),
+                  )
+                else
+                  StreamBuilder<Duration>(
+                    stream: musify.audioHandler.audioPlayer.positionStream,
+                    builder: (_, position) {
+                      final duration =
+                          musify.audioHandler.audioPlayer.duration ??
+                          Duration.zero;
+                      final max = duration.inMilliseconds
+                          .toDouble()
+                          .clamp(1.0, double.infinity)
+                          .toDouble();
+                      return Slider(
+                        value:
+                            position.data?.inMilliseconds
+                                .toDouble()
+                                .clamp(0, max)
+                                .toDouble() ??
+                            0,
+                        max: max,
+                        onChanged: (value) => musify.audioHandler.seek(
+                          Duration(milliseconds: value.round()),
+                        ),
+                      );
+                    },
+                  ),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
-                    IconButton(
-                      tooltip: 'Shuffle',
-                      color: shuffleNotifier.value ? zonicAccent : null,
-                      onPressed: () => musify.audioHandler.setShuffleMode(
-                        shuffleNotifier.value
-                            ? AudioServiceShuffleMode.none
-                            : AudioServiceShuffleMode.all,
+                    if (!isRadio)
+                      IconButton(
+                        tooltip: 'Shuffle',
+                        color: shuffleNotifier.value ? zonicAccent : null,
+                        onPressed: () => musify.audioHandler.setShuffleMode(
+                          shuffleNotifier.value
+                              ? AudioServiceShuffleMode.none
+                              : AudioServiceShuffleMode.all,
+                        ),
+                        icon: const Icon(Icons.shuffle_rounded),
                       ),
-                      icon: const Icon(Icons.shuffle_rounded),
-                    ),
-                    IconButton(
-                      iconSize: 42,
-                      onPressed: musify.audioHandler.skipToPrevious,
-                      icon: const Icon(Icons.skip_previous_rounded),
-                    ),
+                    if (!isRadio)
+                      IconButton(
+                        iconSize: 42,
+                        onPressed: musify.audioHandler.skipToPrevious,
+                        icon: const Icon(Icons.skip_previous_rounded),
+                      ),
                     FilledButton(
                       style: FilledButton.styleFrom(
                         shape: const CircleBorder(),
@@ -2001,80 +1916,86 @@ class _FullPlayer extends StatelessWidget {
                         size: 42,
                       ),
                     ),
-                    IconButton(
-                      iconSize: 42,
-                      onPressed: musify.audioHandler.skipToNext,
-                      icon: const Icon(Icons.skip_next_rounded),
-                    ),
-                    IconButton(
-                      tooltip: 'Repeat',
-                      color: repeatNotifier.value != AudioServiceRepeatMode.none
-                          ? zonicAccent
-                          : null,
-                      onPressed: () {
-                        final next =
-                            repeatNotifier.value == AudioServiceRepeatMode.none
-                            ? AudioServiceRepeatMode.all
-                            : repeatNotifier.value == AudioServiceRepeatMode.all
-                            ? AudioServiceRepeatMode.one
-                            : AudioServiceRepeatMode.none;
-                        musify.audioHandler.setRepeatMode(next);
-                      },
-                      icon: Icon(
-                        repeatNotifier.value == AudioServiceRepeatMode.one
-                            ? Icons.repeat_one_rounded
-                            : Icons.repeat_rounded,
+                    if (!isRadio)
+                      IconButton(
+                        iconSize: 42,
+                        onPressed: musify.audioHandler.skipToNext,
+                        icon: const Icon(Icons.skip_next_rounded),
                       ),
-                    ),
+                    if (!isRadio)
+                      IconButton(
+                        tooltip: 'Repeat',
+                        color:
+                            repeatNotifier.value != AudioServiceRepeatMode.none
+                            ? zonicAccent
+                            : null,
+                        onPressed: () {
+                          final next =
+                              repeatNotifier.value ==
+                                  AudioServiceRepeatMode.none
+                              ? AudioServiceRepeatMode.all
+                              : repeatNotifier.value ==
+                                    AudioServiceRepeatMode.all
+                              ? AudioServiceRepeatMode.one
+                              : AudioServiceRepeatMode.none;
+                          musify.audioHandler.setRepeatMode(next);
+                        },
+                        icon: Icon(
+                          repeatNotifier.value == AudioServiceRepeatMode.one
+                              ? Icons.repeat_one_rounded
+                              : Icons.repeat_rounded,
+                        ),
+                      ),
                   ],
                 ),
                 const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    IconButton(
-                      tooltip: 'Like',
-                      onPressed: song == null
-                          ? null
-                          : () => updateSongLikeStatus(
-                              song['ytid'],
-                              !isSongAlreadyLiked(song['ytid']),
-                              songData: song,
-                            ),
-                      icon: Icon(
-                        song != null && isSongAlreadyLiked(song['ytid'])
-                            ? Icons.favorite_rounded
-                            : Icons.favorite_border_rounded,
-                      ),
-                    ),
-                    IconButton(
-                      tooltip: 'Lyrics',
-                      onPressed: song == null
-                          ? null
-                          : () => Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => _LyricsPage(song: song),
+                if (!isRadio)
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      IconButton(
+                        tooltip: 'Like',
+                        onPressed: song == null
+                            ? null
+                            : () => updateSongLikeStatus(
+                                song['ytid'],
+                                !isSongAlreadyLiked(song['ytid']),
+                                songData: song,
                               ),
-                            ),
-                      icon: const Icon(Icons.lyrics_rounded),
-                    ),
-                    IconButton(
-                      tooltip: 'Download',
-                      onPressed: song == null
-                          ? null
-                          : () => _download(context, song),
-                      icon: const Icon(Icons.download_rounded),
-                    ),
-                    IconButton(
-                      tooltip: 'More',
-                      onPressed: song == null
-                          ? null
-                          : () => _showSongActions(context, song),
-                      icon: const Icon(Icons.more_horiz_rounded),
-                    ),
-                  ],
-                ),
-                if (song != null) ...[
+                        icon: Icon(
+                          song != null && isSongAlreadyLiked(song['ytid'])
+                              ? Icons.favorite_rounded
+                              : Icons.favorite_border_rounded,
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: 'Lyrics',
+                        onPressed: song == null
+                            ? null
+                            : () => Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => _LyricsPage(song: song),
+                                ),
+                              ),
+                        icon: const Icon(Icons.lyrics_rounded),
+                      ),
+                      IconButton(
+                        tooltip: 'Download',
+                        onPressed: song == null
+                            ? null
+                            : () => _download(context, song),
+                        icon: const Icon(Icons.download_rounded),
+                      ),
+                      IconButton(
+                        tooltip: 'More',
+                        onPressed: song == null
+                            ? null
+                            : () => _showSongActions(context, song),
+                        icon: const Icon(Icons.more_horiz_rounded),
+                      ),
+                    ],
+                  ),
+                if (song != null && !isRadio) ...[
                   const SizedBox(height: 24),
                   _PlayerLyricsCard(song: song),
                 ],

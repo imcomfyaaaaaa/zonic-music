@@ -820,10 +820,11 @@ class MusifyAudioHandler extends BaseAudioHandler implements AndroidAutoHost {
   }
 
   bool _canRetryPlayback() =>
-      hasNext ||
-      (repeatNotifier.value == AudioServiceRepeatMode.all &&
-          _queueList.isNotEmpty) ||
-      playNextSongAutomatically.value;
+      currentSong?['isLive'] != true &&
+      (hasNext ||
+          (repeatNotifier.value == AudioServiceRepeatMode.all &&
+              _queueList.isNotEmpty) ||
+          playNextSongAutomatically.value);
 
   void _handlePlaybackError() {
     _consecutiveErrors++;
@@ -853,6 +854,10 @@ class MusifyAudioHandler extends BaseAudioHandler implements AndroidAutoHost {
 
   Future<void> _handleSongCompletion() async {
     try {
+      if (currentSong?['isLive'] == true) {
+        await stop();
+        return;
+      }
       if (_hasCurrentQueueIndex) {
         _addToHistory(_queueList[_currentQueueIndex]);
       }
@@ -878,6 +883,7 @@ class MusifyAudioHandler extends BaseAudioHandler implements AndroidAutoHost {
   Future<void> _backgroundAddSongsToQueue() async {
     // Repeat modes keep the queue cycling, so extending it would corrupt it.
     if (offlineMode.value ||
+        currentSong?['isLive'] == true ||
         hasNext ||
         repeatNotifier.value != AudioServiceRepeatMode.none) {
       return;
@@ -2210,7 +2216,8 @@ class MusifyAudioHandler extends BaseAudioHandler implements AndroidAutoHost {
     }
   }
 
-  /// Play a radio stream directly without queue management
+  /// Play a live station as the current queue item so every player surface
+  /// (including the phone mini player) observes the same station metadata.
   Future<bool> playRadioStream({
     required String id,
     required String name,
@@ -2241,11 +2248,6 @@ class MusifyAudioHandler extends BaseAudioHandler implements AndroidAutoHost {
         await audioPlayer.pause();
       }
 
-      // Update media item and queue for mini player visibility
-      final mediaItem = mapToMediaItem(radioSong);
-      this.mediaItem.add(mediaItem);
-      queue.add([mediaItem]);
-
       // Build audio source from stream URL
       final audioSource = await buildAudioSource(
         radioSong,
@@ -2264,19 +2266,38 @@ class MusifyAudioHandler extends BaseAudioHandler implements AndroidAutoHost {
           .setAudioSource(audioSource)
           .timeout(_songTransitionTimeout);
 
+      final queueSong = _queueEntryIds.createSong(radioSong);
+      _queueList
+        ..clear()
+        ..add(queueSong);
+      _originalQueueList
+        ..clear()
+        ..add(cloneMap(queueSong));
+      _historyList.clear();
+      _currentQueueIndex = 0;
+      _currentLoadingIndex = -1;
+      _currentLoadingTransitionId = -1;
+      _resetPreloadingState();
+      _rebuildOriginalQueueEntryIndex();
+      _updateQueueMediaItems();
+
       listeningStatsService.finishListeningSession(
         countCurrentTick: true,
         wasPlaying: wasPlayingBeforeSwap,
       );
 
-      await audioPlayer.play().catchError((Object e, StackTrace stackTrace) {
-        logger.log(
-          'Error starting radio playback',
-          error: e,
-          stackTrace: stackTrace,
-        );
-        _lastError = e.toString();
-      });
+      // just_audio's play() future completes when playback ends, not when it
+      // starts. A live stream may never end, so do not await it here.
+      unawaited(
+        audioPlayer.play().catchError((Object e, StackTrace stackTrace) {
+          logger.log(
+            'Error starting radio playback',
+            error: e,
+            stackTrace: stackTrace,
+          );
+          _lastError = e.toString();
+        }),
+      );
 
       _updatePlaybackState();
       return true;
@@ -2321,7 +2342,7 @@ class MusifyAudioHandler extends BaseAudioHandler implements AndroidAutoHost {
         tag: tag,
       );
 
-      if (!sponsorBlockSupport.value) {
+      if (song['isLive'] == true || !sponsorBlockSupport.value) {
         return audioSource;
       }
 
@@ -2426,6 +2447,7 @@ class MusifyAudioHandler extends BaseAudioHandler implements AndroidAutoHost {
   @override
   Future<void> skipToNext() async {
     try {
+      if (currentSong?['isLive'] == true) return;
       if (_currentQueueIndex < _queueList.length - 1) {
         await _playFromQueue(_currentQueueIndex + 1);
       } else if (repeatNotifier.value == AudioServiceRepeatMode.all &&
@@ -2454,6 +2476,7 @@ class MusifyAudioHandler extends BaseAudioHandler implements AndroidAutoHost {
   @override
   Future<void> skipToPrevious() async {
     try {
+      if (currentSong?['isLive'] == true) return;
       if (_currentQueueIndex > 0) {
         await _playFromQueue(_currentQueueIndex - 1);
       } else if (_historyList.isNotEmpty) {

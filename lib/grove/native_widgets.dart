@@ -163,90 +163,97 @@ class ZonicMiniPlayer extends StatelessWidget {
   final VoidCallback onExpand;
 
   @override
-  Widget build(BuildContext context) => StreamBuilder<PlaybackState>(
-    stream: musify.audioHandler.playbackState,
-    builder: (context, snapshot) {
-      final song = musify.audioHandler.currentSong;
-      final playing = snapshot.data?.playing == true;
-      return Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(16),
-        clipBehavior: Clip.antiAlias,
-        child: Ink(
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xff302d39), Color(0xff201e27)],
+  Widget build(BuildContext context) => StreamBuilder<MediaItem?>(
+    stream: musify.audioHandler.mediaItem,
+    builder: (context, _) => StreamBuilder<PlaybackState>(
+      stream: musify.audioHandler.playbackState,
+      builder: (context, snapshot) {
+        final song = musify.audioHandler.currentSong;
+        final isRadio = song?['isLive'] == true;
+        final playing = snapshot.data?.playing == true;
+        return Material(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(16),
+          clipBehavior: Clip.antiAlias,
+          child: Ink(
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xff302d39), Color(0xff201e27)],
+              ),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xff45404d)),
             ),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0xff45404d)),
-          ),
-          child: InkWell(
-            onTap: onExpand,
-            child: SizedBox(
-              height: 72,
-              child: Row(
-                children: [
-                  const SizedBox(width: 8),
-                  ZonicArtwork(
-                    url: zonicArtworkUrl(song),
-                    size: 56,
-                    radius: 11,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          song?['title']?.toString() ??
-                              'Choose something to play',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
+            child: InkWell(
+              onTap: onExpand,
+              child: SizedBox(
+                height: 72,
+                child: Row(
+                  children: [
+                    const SizedBox(width: 8),
+                    ZonicArtwork(
+                      url: zonicArtworkUrl(song),
+                      size: 56,
+                      radius: 11,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            song?['title']?.toString() ??
+                                'Choose something to play',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          song?['artist']?.toString() ?? 'Zonic',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            color: zonicMuted,
+                          const SizedBox(height: 3),
+                          Text(
+                            song?['artist']?.toString() ?? 'Zonic',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: zonicMuted,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                  IconButton(
-                    tooltip: playing ? 'Pause' : 'Play',
-                    onPressed: () => unawaited(
-                      playing
-                          ? musify.audioHandler.pause()
-                          : musify.audioHandler.play(),
+                    IconButton(
+                      tooltip: playing ? 'Pause' : 'Play',
+                      onPressed: () => unawaited(
+                        playing
+                            ? musify.audioHandler.pause()
+                            : musify.audioHandler.play(),
+                      ),
+                      icon: Icon(
+                        playing
+                            ? Icons.pause_rounded
+                            : Icons.play_arrow_rounded,
+                        size: 32,
+                      ),
                     ),
-                    icon: Icon(
-                      playing ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                      size: 32,
-                    ),
-                  ),
-                  IconButton(
-                    tooltip: 'Next',
-                    onPressed: () =>
-                        unawaited(musify.audioHandler.skipToNext()),
-                    icon: const Icon(Icons.skip_next_rounded, size: 30),
-                  ),
-                  const SizedBox(width: 4),
-                ],
+                    if (!isRadio)
+                      IconButton(
+                        tooltip: 'Next',
+                        onPressed: () =>
+                            unawaited(musify.audioHandler.skipToNext()),
+                        icon: const Icon(Icons.skip_next_rounded, size: 30),
+                      ),
+                    const SizedBox(width: 4),
+                  ],
+                ),
               ),
             ),
           ),
-        ),
-      );
-    },
+        );
+      },
+    ),
   );
 }
 
@@ -292,9 +299,9 @@ class ZonicPhoneNavigation extends StatelessWidget {
       ),
       NavigationDestination(icon: Icon(Icons.search_rounded), label: 'Browse'),
       NavigationDestination(
-        icon: Icon(Icons.person_outline_rounded),
-        selectedIcon: Icon(Icons.person_rounded),
-        label: 'Artists',
+        icon: Icon(Icons.radio_outlined),
+        selectedIcon: Icon(Icons.radio_rounded),
+        label: 'Radio',
       ),
       NavigationDestination(
         icon: Icon(Icons.library_music_outlined),

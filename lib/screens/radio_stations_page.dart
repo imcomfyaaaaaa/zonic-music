@@ -28,115 +28,119 @@ import 'package:musify/services/common_services.dart';
 import 'package:musify/utilities/flutter_toast.dart';
 
 class RadioStationsPage extends StatelessWidget {
-  const RadioStationsPage({super.key});
+  const RadioStationsPage({super.key, this.showAppBar = true});
+
+  final bool showAppBar;
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text(context.l10n!.radioStations)),
-      body: ValueListenableBuilder(
-        valueListenable: userLikedRadioStations,
-        builder: (context, likedStations, _) {
-          final stations = _sortWithLikedFirst(
-            radioStationsDB,
-            likedStations.toSet(),
-          );
+    final stationsList = ValueListenableBuilder(
+      valueListenable: userLikedRadioStations,
+      builder: (context, likedStations, _) {
+        final stations = _sortWithLikedFirst(
+          radioStationsDB,
+          likedStations.toSet(),
+        );
 
-          return ListView.builder(
-            padding: const EdgeInsets.fromLTRB(18, 8, 18, 40),
-            itemCount: stations.length + 1,
-            itemBuilder: (context, index) {
-              if (index == 0) {
-                return const Padding(
-                  padding: EdgeInsets.fromLTRB(4, 12, 4, 20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+        return ListView.builder(
+          padding: const EdgeInsets.fromLTRB(18, 8, 18, 40),
+          itemCount: stations.length + 1,
+          itemBuilder: (context, index) {
+            if (index == 0) {
+              return const Padding(
+                padding: EdgeInsets.fromLTRB(4, 12, 4, 20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'LIVE RADIO',
+                      style: TextStyle(
+                        color: zonicAccent,
+                        fontSize: 12,
+                        letterSpacing: 1.8,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    SizedBox(height: 6),
+                    Text(
+                      'Tune in',
+                      style: TextStyle(
+                        fontSize: 29,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    Text(
+                      'Pick a station and keep listening.',
+                      style: TextStyle(color: zonicMuted),
+                    ),
+                  ],
+                ),
+              );
+            }
+            final station = stations[index - 1];
+            final liked = likedStations.contains(station.id);
+            return Padding(
+              key: ValueKey(station.id),
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: zonicSurface,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: const Color(0xff35323e)),
+                ),
+                child: ListTile(
+                  contentPadding: const EdgeInsets.fromLTRB(10, 7, 6, 7),
+                  leading: ZonicArtwork(
+                    url: station.image,
+                    size: 54,
+                    radius: 11,
+                  ),
+                  title: Text(
+                    station.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  subtitle: Text(
+                    station.genre ?? 'Radio',
+                    style: const TextStyle(color: zonicMuted),
+                  ),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
-                        'LIVE RADIO',
-                        style: TextStyle(
-                          color: zonicAccent,
-                          fontSize: 12,
-                          letterSpacing: 1.8,
-                          fontWeight: FontWeight.w800,
+                      IconButton(
+                        tooltip: liked
+                            ? 'Remove from favorites'
+                            : 'Add to favorites',
+                        icon: Icon(
+                          liked
+                              ? Icons.favorite_rounded
+                              : Icons.favorite_border_rounded,
+                          color: liked ? const Color(0xffff6680) : zonicMuted,
                         ),
+                        onPressed: () => liked
+                            ? removeRadioStationFromLiked(station.id)
+                            : addRadioStationToLiked(station.id),
                       ),
-                      SizedBox(height: 6),
-                      Text(
-                        'Tune in',
-                        style: TextStyle(
-                          fontSize: 29,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      Text(
-                        'Pick a station and keep listening.',
-                        style: TextStyle(color: zonicMuted),
+                      IconButton.filled(
+                        tooltip: 'Play ${station.name}',
+                        icon: const Icon(Icons.play_arrow_rounded),
+                        onPressed: () => _playStation(context, station),
                       ),
                     ],
                   ),
-                );
-              }
-              final station = stations[index - 1];
-              final liked = likedStations.contains(station.id);
-              return Padding(
-                key: ValueKey(station.id),
-                padding: const EdgeInsets.only(bottom: 10),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: zonicSurface,
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(color: const Color(0xff35323e)),
-                  ),
-                  child: ListTile(
-                    contentPadding: const EdgeInsets.fromLTRB(10, 7, 6, 7),
-                    leading: ZonicArtwork(
-                      url: station.image,
-                      size: 54,
-                      radius: 11,
-                    ),
-                    title: Text(
-                      station.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontWeight: FontWeight.w700),
-                    ),
-                    subtitle: Text(
-                      station.genre ?? 'Radio',
-                      style: const TextStyle(color: zonicMuted),
-                    ),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          tooltip: liked
-                              ? 'Remove from favorites'
-                              : 'Add to favorites',
-                          icon: Icon(
-                            liked
-                                ? Icons.favorite_rounded
-                                : Icons.favorite_border_rounded,
-                            color: liked ? const Color(0xffff6680) : zonicMuted,
-                          ),
-                          onPressed: () => liked
-                              ? removeRadioStationFromLiked(station.id)
-                              : addRadioStationToLiked(station.id),
-                        ),
-                        IconButton.filled(
-                          tooltip: 'Play ${station.name}',
-                          icon: const Icon(Icons.play_arrow_rounded),
-                          onPressed: () => _playStation(context, station),
-                        ),
-                      ],
-                    ),
-                    onTap: () => _playStation(context, station),
-                  ),
+                  onTap: () => _playStation(context, station),
                 ),
-              );
-            },
-          );
-        },
-      ),
+              ),
+            );
+          },
+        );
+      },
+    );
+    if (!showAppBar) return stationsList;
+    return Scaffold(
+      appBar: AppBar(title: Text(context.l10n!.radioStations)),
+      body: stationsList,
     );
   }
 
