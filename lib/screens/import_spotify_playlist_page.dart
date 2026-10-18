@@ -31,9 +31,11 @@ class _ImportSpotifyPlaylistPageState extends State<ImportSpotifyPlaylistPage> {
   // can't spawn a second import running concurrently with the first.
   static bool _importRunning = false;
 
-  // Limit concurrency and leave a short pause between batches.
-  static const _batchSize = 12;
-  static const _batchPause = Duration(milliseconds: 150);
+  // Large libraries need a gentle request rate. Four concurrent searches are
+  // fast enough for big imports without making YouTube reject the whole job.
+  static const _batchSize = 4;
+  static const _batchPause = Duration(milliseconds: 350);
+  static const _rateLimitPause = Duration(seconds: 6);
 
   final _csvController = TextEditingController();
   final _playlistNameController = TextEditingController();
@@ -158,7 +160,6 @@ class _ImportSpotifyPlaylistPageState extends State<ImportSpotifyPlaylistPage> {
     // Key results by their CSV position so retry results remain ordered.
     final foundByIndex = <int, Map>{};
     List<_ImportRow> missingRows;
-    var rateLimited = false;
     try {
       final firstPass = await _searchBatch(
         rows,
@@ -168,10 +169,10 @@ class _ImportSpotifyPlaylistPageState extends State<ImportSpotifyPlaylistPage> {
       );
       foundByIndex.addAll(firstPass.found);
       missingRows = firstPass.missing;
-      rateLimited = firstPass.rateLimited;
 
-      // Retry misses once, unless the service is actively rate-limiting us.
-      if (!rateLimited && missingRows.isNotEmpty) {
+      // Retry misses once. A temporary YouTube rate limit should not abandon
+      // the remaining hundreds of rows in a large playlist.
+      if (missingRows.isNotEmpty) {
         // Include the retry work in the progress total.
         if (mounted) setState(() => _totalCount += missingRows.length);
         final retryPass = await _searchBatch(
@@ -182,7 +183,6 @@ class _ImportSpotifyPlaylistPageState extends State<ImportSpotifyPlaylistPage> {
         );
         foundByIndex.addAll(retryPass.found);
         missingRows = retryPass.missing;
-        rateLimited = retryPass.rateLimited;
       }
     } finally {
       _importRunning = false;
@@ -230,12 +230,10 @@ class _ImportSpotifyPlaylistPageState extends State<ImportSpotifyPlaylistPage> {
 
     final resultText =
         likedResult ??
-        (rateLimited
-            ? '${context.l10n!.spotifyPlaylistImportFailed}\n${context.l10n!.spotifyPlaylistImportResult(foundSongs.length, rows.length)}'
-            : context.l10n!.spotifyPlaylistImportResult(
-                foundSongs.length,
-                rows.length,
-              ));
+        context.l10n!.spotifyPlaylistImportResult(
+          foundSongs.length,
+          rows.length,
+        );
     if (missingRows.isNotEmpty) {
       final missingText = missingRows
           .map((row) => '${row.title} - ${row.artist}')
@@ -256,7 +254,8 @@ class _ImportSpotifyPlaylistPageState extends State<ImportSpotifyPlaylistPage> {
     }
   }
 
-  /// Resolves [rows] in batches and stops when rate limiting is detected.
+  /// Resolves [rows] in batches. When YouTube briefly slows requests, waits
+  /// and continues rather than dropping the rest of a large CSV.
   /// Results are keyed by the rows' original positions for retry merging.
   Future<({Map<int, Map> found, List<_ImportRow> missing, bool rateLimited})>
   _searchBatch(
@@ -288,24 +287,23 @@ class _ImportSpotifyPlaylistPageState extends State<ImportSpotifyPlaylistPage> {
       }
       onProgress(batchResults.length);
       if (batchRateLimited) {
-        missing.addAll(rows.skip(i + _batchSize));
-        return (found: found, missing: missing, rateLimited: true);
+        await Future.delayed(_rateLimitPause);
+      } else {
+        await Future.delayed(_batchPause);
       }
-      await Future.delayed(_batchPause);
     }
     return (found: found, missing: missing, rateLimited: false);
   }
 
   /// Returns the best match for [query], or `null` if none was found.
-  /// The second value is `true` when YouTube is actively rate-limiting this
-  /// device, so the caller can stop the whole import instead of retrying
-  /// every remaining song for minutes on end.
+  /// The second value reports that YouTube throttled this lookup, allowing the
+  /// batch runner to slow down while preserving the rest of the import.
   Future<(Map<String, dynamic>?, bool)> _findSongWithRetry(
     String query, {
     String? expectedArtist,
     String? expectedTitle,
   }) async {
-    const maxAttempts = 2;
+    const maxAttempts = 4;
     for (var attempt = 0; attempt < maxAttempts; attempt++) {
       try {
         final video = await ytMusicClient.music.searchSong(
@@ -316,10 +314,10 @@ class _ImportSpotifyPlaylistPageState extends State<ImportSpotifyPlaylistPage> {
         if (video == null) return (null, false);
         return (Map<String, dynamic>.from(returnSongLayout(0, video)), false);
       } on RequestLimitExceededException {
-        // A single short retry for a transient hiccup; a second hit means
-        // it's a genuine, sustained block.
+        // Back off progressively. This makes importing a thousand-song CSV
+        // reliable instead of terminating it after one short burst.
         if (attempt == maxAttempts - 1) return (null, true);
-        await Future.delayed(const Duration(seconds: 2));
+        await Future.delayed(Duration(seconds: 2 << attempt));
       } catch (e, stackTrace) {
         if (attempt == maxAttempts - 1) {
           logger.log(
