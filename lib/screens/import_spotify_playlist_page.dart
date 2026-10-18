@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:file_picker/file_picker.dart';
@@ -36,6 +37,7 @@ class _ImportSpotifyPlaylistPageState extends State<ImportSpotifyPlaylistPage> {
   static const _batchSize = 4;
   static const _batchPause = Duration(milliseconds: 350);
   static const _rateLimitPause = Duration(seconds: 6);
+  static const _platform = MethodChannel('grove/platform');
 
   final _csvController = TextEditingController();
   final _playlistNameController = TextEditingController();
@@ -43,6 +45,24 @@ class _ImportSpotifyPlaylistPageState extends State<ImportSpotifyPlaylistPage> {
   String? _fileName;
   int _processedCount = 0;
   int _totalCount = 0;
+
+  Future<void> _backgroundImport(String action) async {
+    try {
+      await _platform.invokeMethod<void>('spotifyImportForeground', {
+        'action': action,
+        'processed': _processedCount,
+        'total': _totalCount,
+      });
+    } catch (_) {
+      // Importing itself still works on platforms without Android services.
+    }
+  }
+
+  void _updateProgress(int amount) {
+    _processedCount += amount;
+    if (mounted) setState(() {});
+    unawaited(_backgroundImport('update'));
+  }
 
   @override
   void dispose() {
@@ -156,6 +176,9 @@ class _ImportSpotifyPlaylistPageState extends State<ImportSpotifyPlaylistPage> {
       _processedCount = 0;
       _totalCount = rows.length;
     });
+    // This foreground notification lets a large, user-started import keep
+    // running when the user switches apps or turns the screen off.
+    unawaited(_backgroundImport('start'));
 
     // Key results by their CSV position so retry results remain ordered.
     final foundByIndex = <int, Map>{};
@@ -163,9 +186,7 @@ class _ImportSpotifyPlaylistPageState extends State<ImportSpotifyPlaylistPage> {
     try {
       final firstPass = await _searchBatch(
         rows,
-        onProgress: (n) {
-          if (mounted) setState(() => _processedCount += n);
-        },
+        onProgress: _updateProgress,
       );
       foundByIndex.addAll(firstPass.found);
       missingRows = firstPass.missing;
@@ -177,15 +198,14 @@ class _ImportSpotifyPlaylistPageState extends State<ImportSpotifyPlaylistPage> {
         if (mounted) setState(() => _totalCount += missingRows.length);
         final retryPass = await _searchBatch(
           missingRows,
-          onProgress: (n) {
-            if (mounted) setState(() => _processedCount += n);
-          },
+          onProgress: _updateProgress,
         );
         foundByIndex.addAll(retryPass.found);
         missingRows = retryPass.missing;
       }
     } finally {
       _importRunning = false;
+      unawaited(_backgroundImport('stop'));
     }
 
     final foundSongs = [

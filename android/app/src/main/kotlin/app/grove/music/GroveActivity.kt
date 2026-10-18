@@ -35,6 +35,17 @@ class GroveActivity : AudioServiceActivity() {
           ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.POST_NOTIFICATIONS), 604)
         }
         result.success(true)
+      } else if (call.method == "spotifyImportForeground") {
+        val action = call.argument<String>("action")
+        val processed = call.argument<Int>("processed") ?: 0
+        val total = call.argument<Int>("total") ?: 0
+        when (action) {
+          "start" -> SpotifyImportService.start(this, processed, total)
+          "update" -> SpotifyImportService.update(this, processed, total)
+          "stop" -> SpotifyImportService.stop(this)
+          else -> { result.error("invalid_action", "Unknown Spotify import action", null); return@setMethodCallHandler }
+        }
+        result.success(true)
       } else if (call.method == "exportToDownloads" && Build.VERSION.SDK_INT >= 29) {
         try {
           val source = File(call.argument<String>("path")!!)

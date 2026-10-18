@@ -12,6 +12,7 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"  />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
 
     <!-- Queries for Android 11+ -->
     <queries>
@@ -126,6 +127,14 @@
                 <action android:name="android.media.browse.MediaBrowserService" />
             </intent-filter>
         </service>
+
+        <!-- Keeps a user-started large Spotify import alive when Zonic moves
+             to the background. The notification makes this visible and can be
+             dismissed automatically as soon as the import ends. -->
+        <service
+            android:name="app.grove.music.SpotifyImportService"
+            android:foregroundServiceType="dataSync"
+            android:exported="false" />
 
         <!-- MediaButtonReceiver -->
         <receiver android:name="com.ryanheise.audioservice.MediaButtonReceiver"
