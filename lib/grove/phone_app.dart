@@ -1186,6 +1186,43 @@ class _NativePlaylistPageState extends State<_NativePlaylistPage> {
     await Hive.box('user').put('customPlaylists', updated);
   }
 
+  Future<void> _deletePlaylist(Map playlist, {required bool isOffline}) async {
+    final title = playlist['title']?.toString() ?? 'this playlist';
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(isOffline ? 'Remove download?' : 'Delete playlist?'),
+        content: Text(
+          isOffline
+              ? 'Remove the downloaded songs for “$title” from this device?'
+              : 'Delete “$title”? This cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(isOffline ? 'Remove' : 'Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    final id = playlist['ytid']?.toString() ?? widget.playlistId;
+    if (isOffline) {
+      await offlinePlaylistService.removeOfflinePlaylist(id);
+    } else {
+      removeUserCustomPlaylist(id);
+      // Persist before returning so deletion survives an immediate app close.
+      await Hive.box('user').put('customPlaylists', userCustomPlaylists.value);
+    }
+    if (mounted) Navigator.of(context).pop();
+  }
+
   Future<void> _addLikedSong(Map playlist) async {
     final candidates = userLikedSongsList.value.whereType<Map>().toList();
     if (candidates.isEmpty) {
@@ -1258,6 +1295,9 @@ class _NativePlaylistPageState extends State<_NativePlaylistPage> {
             orElse: () => null,
           ) ??
           offlinePlaylistService.getOfflinePlaylist(widget.playlistId);
+      final isOffline = !allPlaylists.any(
+        (item) => item['ytid']?.toString() == widget.playlistId,
+      );
       if (playlist == null) {
         return Scaffold(
           backgroundColor: zonicBackground,
@@ -1288,10 +1328,16 @@ class _NativePlaylistPageState extends State<_NativePlaylistPage> {
           foregroundColor: Colors.white,
           title: const Text('Playlist'),
           actions: [
+            if (!isOffline)
+              IconButton(
+                tooltip: 'Rename playlist',
+                onPressed: () => _rename(playlist),
+                icon: const Icon(Icons.edit_rounded),
+              ),
             IconButton(
-              tooltip: 'Rename playlist',
-              onPressed: () => _rename(playlist),
-              icon: const Icon(Icons.edit_rounded),
+              tooltip: isOffline ? 'Remove download' : 'Delete playlist',
+              onPressed: () => _deletePlaylist(playlist, isOffline: isOffline),
+              icon: const Icon(Icons.delete_outline_rounded),
             ),
           ],
         ),
