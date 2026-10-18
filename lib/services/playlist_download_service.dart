@@ -191,9 +191,11 @@ class OfflinePlaylistService {
 
       final songsList = playlist['list'] as List<dynamic>;
 
-      // Only add to offline playlists if not cancelled and most songs succeeded
+      // A playlist is offline only when every song is actually saved. A partial
+      // result must remain retryable instead of showing a false download badge.
       if (!progressNotifier.value.isCancelled &&
-          progressNotifier.value.completed > progressNotifier.value.failed) {
+          progressNotifier.value.completed == songsList.length &&
+          progressNotifier.value.failed == 0) {
         // Create an offline version of the playlist
         final offlinePlaylist = {
           ...playlist,

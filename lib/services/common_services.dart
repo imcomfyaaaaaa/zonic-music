@@ -797,7 +797,11 @@ Future<AudioOnlyStreamInfo?> fetchBestAudioStream(
     if (cachedStream != null) return cachedStream;
 
     final manifest = await _fetchStreamManifest(songId);
-    final audioStream = manifest?.audioOnly;
+    // Some YouTube responses advertise placeholder/query-only stream URLs.
+    // They cannot be downloaded; select only fully qualified CDN URLs.
+    final audioStream = manifest?.audioOnly
+        .where((stream) => stream.url.hasScheme && stream.url.hasAuthority)
+        .toList();
     if (audioStream == null || audioStream.isEmpty) {
       logger.log('fetchBestAudioStream: no audio streams for $songId');
       return null;
@@ -928,7 +932,9 @@ Future<bool> makeSongOffline(
     }
 
     if (isSongAlreadyOffline(ytid)) {
-      final existingPath = FilePaths.getAudioPath(ytid);
+      final existingPath =
+          getOfflineSongByYtid(ytid)['audioPath']?.toString() ??
+          FilePaths.getAudioPath(ytid);
       if (await File(existingPath).exists()) {
         unawaited(cacheSponsorBlockSegments(ytid));
         return true;
@@ -937,17 +943,20 @@ Future<bool> makeSongOffline(
 
     final offlineSong = Map<String, dynamic>.from(song as Map);
 
-    final audioPath = FilePaths.getAudioPath(ytid);
-    final audioFile = File(audioPath);
+    File? audioFile;
     final artworkPath = FilePaths.getArtworkPath(ytid);
-
-    await audioFile.parent.create(recursive: true);
 
     int? audioBitrateKbps;
     String? audioCodec;
     IOSink? fileStream;
     try {
-      final audioManifest = await fetchBestAudioStream(ytid, quality: quality);
+      var audioManifest = await fetchBestAudioStream(ytid, quality: quality);
+      if (audioManifest == null) {
+        // Manifest requests can fail transiently while another YouTube client
+        // succeeds. Do not cache a failed resolution for an offline download.
+        await invalidateSongStreamCache(ytid);
+        audioManifest = await fetchBestAudioStream(ytid, quality: quality);
+      }
       if (audioManifest == null) {
         logger.log('makeSongOffline: audioManifest is null for $ytid');
         return false;
@@ -955,7 +964,17 @@ Future<bool> makeSongOffline(
       audioBitrateKbps = audioManifest.bitrate.kiloBitsPerSecond.round();
       audioCodec = audioManifest.audioCodec;
 
-      final stream = ytClient.videos.streamsClient.get(audioManifest);
+      final extension = audioManifest.container.name == 'webm'
+          ? '.webm'
+          : '.m4a';
+      audioFile = File(
+        '${FilePaths.getAudioPath(ytid).replaceFirst(RegExp(r'\.m4a$'), '')}$extension',
+      );
+      await audioFile.parent.create(recursive: true);
+      final stream = ytClient.videos.streamsClient.get(
+        audioManifest,
+        headers: streamPlaybackHeaders(ytid),
+      );
       fileStream = audioFile.openWrite();
       var received = 0;
       await for (final chunk in stream) {
@@ -977,7 +996,7 @@ Future<bool> makeSongOffline(
       try {
         await fileStream?.close();
       } catch (_) {}
-      if (await audioFile.exists()) {
+      if (audioFile != null && await audioFile.exists()) {
         await audioFile.delete();
       }
       return false;
@@ -1005,6 +1024,10 @@ Future<bool> makeSongOffline(
       offlineSong['artworkPath'] = null;
     }
 
+    if (!await audioFile.exists() || await audioFile.length() == 0) {
+      logger.log('makeSongOffline: no audio bytes saved for $ytid');
+      return false;
+    }
     offlineSong['audioPath'] = audioFile.path;
     offlineSong['audioBitrateKbps'] = audioBitrateKbps;
     offlineSong['audioCodec'] = audioCodec;
@@ -1023,12 +1046,10 @@ Future<bool> makeSongOffline(
       }
       userOfflineSongs.value = updatedOfflineSongs;
 
-      unawaited(
-        addOrUpdateData<List>(
-          'userNoBackup',
-          'offlineSongs',
-          userOfflineSongs.value,
-        ),
+      await addOrUpdateData<List>(
+        'userNoBackup',
+        'offlineSongs',
+        userOfflineSongs.value,
       );
 
       unawaited(cacheSponsorBlockSegments(ytid));
@@ -1063,7 +1084,9 @@ Future<void> _deleteFileIfExists(File file, String errorDescription) async {
 
 Future<bool> removeSongFromOffline(dynamic songId) async {
   try {
-    final audioPath = FilePaths.getAudioPath(songId);
+    final audioPath =
+        getOfflineSongByYtid(songId)['audioPath']?.toString() ??
+        FilePaths.getAudioPath(songId);
     final artworkPath = FilePaths.getArtworkPath(songId);
 
     await Future.wait([

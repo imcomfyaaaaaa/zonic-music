@@ -236,6 +236,11 @@ class YoutubeHttpClient extends http.BaseClient {
                   'Error: Could not find the stream in the new manifest (due to Youtube error)');
               rethrow;
             }
+            if (!stream.url.hasScheme || !stream.url.hasAuthority) {
+              // Some fallback manifests contain a query-only placeholder URL.
+              // Never replace a real CDN URL with it for the next range.
+              rethrow;
+            }
             url = stream.url;
             continue;
           }

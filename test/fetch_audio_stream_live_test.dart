@@ -5,6 +5,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'package:musify/constants/clients.dart';
 import 'package:musify/services/common_services.dart';
+import 'package:musify/services/io_service.dart';
 import 'package:musify/services/settings_manager.dart';
 import 'package:youtube_explode_dart/youtube_explode_dart.dart';
 
@@ -21,6 +22,10 @@ void main() {
     Hive.init(Directory.systemTemp.createTempSync('musify_live').path);
     await Hive.openBox('settings');
     await Hive.openBox('cache');
+    await Hive.openBox('userNoBackup');
+    applicationDirPath = Directory.systemTemp
+        .createTempSync('zonic_download_test')
+        .path;
     useProxy.value = false;
   });
 
@@ -51,6 +56,38 @@ void main() {
     },
     skip: _skip,
     timeout: const Timeout(Duration(seconds: 90)),
+  );
+
+  test(
+    'download stream returns audio bytes with matching client headers',
+    () async {
+      final stream = await fetchBestAudioStream(_songId);
+      expect(stream, isNotNull);
+      final yt = YoutubeExplode();
+      try {
+        final firstChunk = await yt.videos.streamsClient
+            .get(stream!, headers: streamPlaybackHeaders(_songId))
+            .first;
+        expect(firstChunk, isNotEmpty);
+      } finally {
+        yt.close();
+      }
+    },
+    skip: _skip,
+    timeout: const Timeout(Duration(seconds: 90)),
+  );
+
+  test(
+    'song download saves a playable audio file',
+    () async {
+      final ok = await makeSongOffline({'ytid': _songId, 'title': 'Test song'});
+      expect(ok, isTrue);
+      final path = getOfflineSongByYtid(_songId)['audioPath']?.toString();
+      expect(path, isNotNull);
+      expect(await File(path!).length(), greaterThan(100000));
+    },
+    skip: _skip,
+    timeout: const Timeout(Duration(minutes: 3)),
   );
 
   test(

@@ -1,16 +1,17 @@
 // Grove keeps Musify's GPLv3 native engine and renders its interface with HTML.
 import 'dart:async';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:webview_flutter/webview_flutter.dart';
-import 'package:webview_flutter_android/webview_flutter_android.dart';
-import 'package:file_picker/file_picker.dart';
-import 'package:musify/main.dart' as musify;
-import 'package:musify/services/listening_stats_service.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:musify/grove/native_server.dart';
 import 'package:musify/grove/phone_app.dart';
 import 'package:musify/grove/tv_app.dart';
+import 'package:musify/main.dart' as musify;
+import 'package:musify/services/listening_stats_service.dart';
+import 'package:webview_flutter/webview_flutter.dart';
+import 'package:webview_flutter_android/webview_flutter_android.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -62,25 +63,64 @@ class ZonicStartingApp extends StatelessWidget {
   Widget build(BuildContext context) => MaterialApp(
     debugShowCheckedModeBanner: false,
     theme: ThemeData.dark(),
-    home: const Scaffold(
-      backgroundColor: Color(0xff09090b),
-      body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'zonic',
-              style: TextStyle(fontSize: 46, fontWeight: FontWeight.w900),
-            ),
-            SizedBox(height: 28),
-            SizedBox.square(
-              dimension: 34,
-              child: CircularProgressIndicator(
-                strokeWidth: 3,
-                color: Color(0xff9d8cff),
+    home: Scaffold(
+      body: DecoratedBox(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xff1e1a37), Color(0xff0b0a13), Color(0xff251522)],
+          ),
+        ),
+        child: SafeArea(
+          child: Stack(
+            children: [
+              Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SvgPicture.asset(
+                      'assets/brand/zonic-wordmark-on-dark.svg',
+                      width: 248,
+                      semanticsLabel: 'Zonic',
+                    ),
+                    const SizedBox(height: 18),
+                    const Text(
+                      'Your music, your space.',
+                      style: TextStyle(
+                        fontSize: 15,
+                        letterSpacing: 1.1,
+                        color: Color(0xffc9c2d8),
+                      ),
+                    ),
+                    const SizedBox(height: 34),
+                    const SizedBox(
+                      width: 84,
+                      child: LinearProgressIndicator(
+                        minHeight: 3,
+                        backgroundColor: Color(0xff363044),
+                        color: Color(0xff9d8cff),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+              const Align(
+                alignment: Alignment.bottomCenter,
+                child: Padding(
+                  padding: EdgeInsets.only(bottom: 24),
+                  child: Text(
+                    'LISTEN YOUR WAY',
+                    style: TextStyle(
+                      fontSize: 10,
+                      letterSpacing: 2.5,
+                      color: Color(0xff9e94ae),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     ),
