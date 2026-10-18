@@ -23,6 +23,7 @@ import 'package:musify/services/playlist_download_service.dart';
 import 'package:musify/services/playlists_manager.dart';
 import 'package:musify/services/settings_manager.dart';
 import 'package:musify/services/update_manager.dart';
+import 'package:musify/utilities/offline_playlist_dialogs.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -36,6 +37,36 @@ class ZonicPhoneApp extends StatefulWidget {
 class _ZonicPhoneAppState extends State<ZonicPhoneApp> {
   int index = 0;
   bool _checkedForUpdate = false;
+  StreamSubscription<Uri?>? _dropboxLinks;
+
+  @override
+  void initState() {
+    super.initState();
+    _dropboxLinks = musify.appLinks.uriLinkStream.listen(_cacheDropboxLink);
+    unawaited(_cacheInitialDropboxLink());
+  }
+
+  @override
+  void dispose() {
+    _dropboxLinks?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _cacheInitialDropboxLink() async {
+    try {
+      await _cacheDropboxLink(await musify.appLinks.getInitialLink());
+    } catch (_) {}
+  }
+
+  Future<void> _cacheDropboxLink(Uri? uri) async {
+    if (uri?.scheme != 'grove' ||
+        uri?.host != 'dropbox' ||
+        uri?.path != '/callback') {
+      return;
+    }
+    await Hive.box('userNoBackup')
+        .put('zonicPendingDropboxLink', uri.toString());
+  }
 
   void _autoCheck(BuildContext context) {
     if (_checkedForUpdate || offlineMode.value) return;
@@ -920,19 +951,35 @@ class _LibraryPage extends StatelessWidget {
                   const _NativeCollectionPage(kind: _CollectionKind.liked),
             ),
           ),
-          trailing: IconButton(
-            tooltip: 'Download Liked Songs',
-            onPressed: songs.isEmpty
-                ? null
-                : () => offlinePlaylistService.downloadPlaylist(context, {
-                    'ytid': 'zonic-liked-songs',
-                    'title': 'Liked Songs',
-                    'source': 'liked',
-                    'list': songs.whereType<Map>().toList(),
-                  }),
-            icon: const Icon(Icons.download_for_offline_outlined),
+          trailing: _PlaylistDownloadButton(
+            playlist: const {
+              'ytid': 'zonic-liked-songs',
+              'title': 'Liked Songs',
+              'source': 'liked',
+            },
+            songs: songs.whereType<Map>().toList(),
+            compact: true,
           ),
         ),
+      ),
+      ValueListenableBuilder<List<dynamic>>(
+        valueListenable: offlinePlaylistService.offlinePlaylists,
+        builder: (context, offlineLists, _) {
+          final count = offlineLists.length;
+          return _LibraryRow(
+            title: 'Downloads',
+            subtitle: count > 0
+                ? '$count downloaded playlist${count == 1 ? '' : 's'} & songs'
+                : 'Downloaded songs and playlists',
+            icon: Icons.download_done_rounded,
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) =>
+                    const _NativeCollectionPage(kind: _CollectionKind.offline),
+              ),
+            ),
+          );
+        },
       ),
       ValueListenableBuilder<List<Map>>(
         valueListenable: userCustomPlaylists,
@@ -952,15 +999,10 @@ class _LibraryPage extends StatelessWidget {
                   ),
                 ),
               ),
-              trailing: IconButton(
-                tooltip: 'Download playlist',
-                onPressed: songs.isEmpty
-                    ? null
-                    : () => offlinePlaylistService.downloadPlaylist(
-                        context,
-                        playlist,
-                      ),
-                icon: const Icon(Icons.download_for_offline_outlined),
+              trailing: _PlaylistDownloadButton(
+                playlist: playlist,
+                songs: songs,
+                compact: true,
               ),
             );
           }).toList(),
@@ -968,6 +1010,129 @@ class _LibraryPage extends StatelessWidget {
       ),
     ],
   );
+}
+
+class _PlaylistDownloadButton extends StatelessWidget {
+  const _PlaylistDownloadButton({
+    required this.playlist,
+    required this.songs,
+    this.compact = false,
+  });
+
+  final Map playlist;
+  final List<Map> songs;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final playlistId =
+        playlist['ytid']?.toString() ?? playlist['title']?.toString() ?? '';
+    if (playlistId.isEmpty) return const SizedBox.shrink();
+
+    return ValueListenableBuilder<List<dynamic>>(
+      valueListenable: offlinePlaylistService.offlinePlaylists,
+      builder: (context, _, __) {
+        final isDownloaded =
+            offlinePlaylistService.isPlaylistDownloaded(playlistId) ||
+            (songs.isNotEmpty && isPlaylistFullyOffline(songs));
+
+        return ValueListenableBuilder<DownloadProgress>(
+          valueListenable: offlinePlaylistService.getProgressNotifier(
+            playlistId,
+          ),
+          builder: (context, progress, _) {
+            final isDownloading = offlinePlaylistService.isPlaylistDownloading(
+              playlistId,
+            );
+
+            if (isDownloading) {
+              final percent = progress.total > 0
+                  ? ' (${progress.completed}/${progress.total})'
+                  : '';
+              if (compact) {
+                return Tooltip(
+                  message: 'Downloading$percent · Tap to cancel',
+                  child: IconButton(
+                    onPressed: () => offlinePlaylistService.cancelDownload(
+                      context,
+                      playlistId,
+                    ),
+                    icon: const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2.2),
+                    ),
+                  ),
+                );
+              }
+              return OutlinedButton.icon(
+                onPressed: () =>
+                    offlinePlaylistService.cancelDownload(context, playlistId),
+                icon: const SizedBox.square(
+                  dimension: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2.2),
+                ),
+                label: Text('Downloading$percent · Cancel'),
+              );
+            }
+
+            if (isDownloaded) {
+              if (compact) {
+                return Tooltip(
+                  message: 'Downloaded · Tap to remove',
+                  child: IconButton(
+                    onPressed: () =>
+                        showRemoveOfflinePlaylistDialog(context, playlistId),
+                    icon: const Icon(
+                      Icons.download_done_rounded,
+                      color: Color(0xff9ff0bd),
+                    ),
+                  ),
+                );
+              }
+              return OutlinedButton.icon(
+                onPressed: () =>
+                    showRemoveOfflinePlaylistDialog(context, playlistId),
+                icon: const Icon(
+                  Icons.download_done_rounded,
+                  color: Color(0xff9ff0bd),
+                ),
+                label: const Text(
+                  'Downloaded',
+                  style: TextStyle(color: Color(0xff9ff0bd)),
+                ),
+              );
+            }
+
+            if (compact) {
+              return Tooltip(
+                message: 'Download playlist',
+                child: IconButton(
+                  onPressed: songs.isEmpty
+                      ? null
+                      : () => offlinePlaylistService.downloadPlaylist(
+                          context,
+                          playlist,
+                        ),
+                  icon: const Icon(Icons.download_for_offline_outlined),
+                ),
+              );
+            }
+
+            return FilledButton.icon(
+              onPressed: songs.isEmpty
+                  ? null
+                  : () => offlinePlaylistService.downloadPlaylist(
+                      context,
+                      playlist,
+                    ),
+              icon: const Icon(Icons.download_for_offline_outlined),
+              label: const Text('Download playlist'),
+            );
+          },
+        );
+      },
+    );
+  }
 }
 
 class _NativePlaylistPage extends StatefulWidget {
@@ -1097,10 +1262,12 @@ class _NativePlaylistPageState extends State<_NativePlaylistPage> {
   Widget build(BuildContext context) => ValueListenableBuilder<List<Map>>(
     valueListenable: userCustomPlaylists,
     builder: (context, allPlaylists, _) {
-      final playlist = allPlaylists.cast<Map?>().firstWhere(
-        (item) => item?['ytid']?.toString() == widget.playlistId,
-        orElse: () => null,
-      );
+      final playlist =
+          allPlaylists.cast<Map?>().firstWhere(
+            (item) => item?['ytid']?.toString() == widget.playlistId,
+            orElse: () => null,
+          ) ??
+          offlinePlaylistService.getOfflinePlaylist(widget.playlistId);
       if (playlist == null) {
         return Scaffold(
           backgroundColor: zonicBackground,
@@ -1143,7 +1310,6 @@ class _NativePlaylistPageState extends State<_NativePlaylistPage> {
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 2, 20, 14),
               child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   ZonicArtwork(
                     url: zonicArtworkUrl(playlist),
@@ -1193,6 +1359,10 @@ class _NativePlaylistPageState extends State<_NativePlaylistPage> {
                               icon: const Icon(Icons.shuffle_rounded),
                               label: const Text('Shuffle'),
                             ),
+                            _PlaylistDownloadButton(
+                              playlist: playlist,
+                              songs: songs,
+                            ),
                           ],
                         ),
                       ],
@@ -1213,16 +1383,6 @@ class _NativePlaylistPageState extends State<_NativePlaylistPage> {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  IconButton(
-                    tooltip: 'Download playlist',
-                    onPressed: songs.isEmpty
-                        ? null
-                        : () => offlinePlaylistService.downloadPlaylist(
-                            context,
-                            playlist,
-                          ),
-                    icon: const Icon(Icons.download_for_offline_outlined),
-                  ),
                   IconButton(
                     tooltip: 'Share playlist',
                     onPressed: () => SharePlus.instance.share(
@@ -1353,16 +1513,6 @@ class _NativeCollectionPageState extends State<_NativeCollectionPage> {
     super.dispose();
   }
 
-  Future<void> _downloadAll(List<Map> songs) async {
-    if (songs.isEmpty) return;
-    await offlinePlaylistService.downloadPlaylist(context, {
-      'ytid': 'zonic-liked-songs',
-      'title': 'Liked Songs',
-      'source': 'liked',
-      'list': songs,
-    });
-  }
-
   @override
   Widget build(BuildContext context) => Scaffold(
     backgroundColor: zonicBackground,
@@ -1452,18 +1602,22 @@ class _NativeCollectionPageState extends State<_NativeCollectionPage> {
                           label: const Text('Shuffle'),
                         ),
                       ),
-                      if (widget.kind == _CollectionKind.liked) ...[
-                        const SizedBox(width: 6),
-                        IconButton(
-                          tooltip: 'Download all',
-                          onPressed: allSongs.isEmpty
-                              ? null
-                              : () => _downloadAll(allSongs),
-                          icon: const Icon(Icons.download_for_offline_outlined),
-                        ),
-                      ],
                     ],
                   ),
+                  if (widget.kind == _CollectionKind.liked) ...[
+                    const SizedBox(height: 10),
+                    SizedBox(
+                      width: double.infinity,
+                      child: _PlaylistDownloadButton(
+                        playlist: const {
+                          'ytid': 'zonic-liked-songs',
+                          'title': 'Liked Songs',
+                          'source': 'liked',
+                        },
+                        songs: allSongs,
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 14),
                   TextField(
                     controller: search,
@@ -1483,7 +1637,86 @@ class _NativeCollectionPageState extends State<_NativeCollectionPage> {
               ),
             ),
             Expanded(
-              child: songs.isEmpty
+              child: widget.kind == _CollectionKind.offline
+                  ? ValueListenableBuilder<List<dynamic>>(
+                      valueListenable: offlinePlaylistService.offlinePlaylists,
+                      builder: (context, offlineLists, _) {
+                        final downloadedPlaylists = offlineLists
+                            .whereType<Map>()
+                            .toList();
+                        if (songs.isEmpty && downloadedPlaylists.isEmpty) {
+                          return Center(
+                            child: Text(
+                              normalized.isEmpty
+                                  ? 'No offline songs or playlists yet.'
+                                  : 'No matching songs.',
+                              style: const TextStyle(color: zonicMuted),
+                            ),
+                          );
+                        }
+                        return ListView(
+                          padding: const EdgeInsets.fromLTRB(12, 0, 12, 30),
+                          children: [
+                            if (downloadedPlaylists.isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(8, 0, 8, 16),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'Downloaded Playlists',
+                                      style: TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 10),
+                                    for (final p in downloadedPlaylists)
+                                      _LibraryRow(
+                                        title:
+                                            p['title']?.toString() ??
+                                            'Playlist',
+                                        subtitle:
+                                            '${(p['list'] as List? ?? []).length} songs available offline',
+                                        artwork: zonicArtworkUrl(p),
+                                        onTap: () => Navigator.of(context).push(
+                                          MaterialPageRoute(
+                                            builder: (_) => _NativePlaylistPage(
+                                              playlistId:
+                                                  p['ytid']?.toString() ?? '',
+                                            ),
+                                          ),
+                                        ),
+                                        trailing: const Icon(
+                                          Icons.chevron_right_rounded,
+                                          color: zonicMuted,
+                                        ),
+                                      ),
+                                    if (songs.isNotEmpty) ...[
+                                      const SizedBox(height: 14),
+                                      const Text(
+                                        'Downloaded Songs',
+                                        style: TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 6),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                            for (var i = 0; i < songs.length; i++)
+                              _SongTile(
+                                song: songs[i],
+                                onTap: () => musify.audioHandler
+                                    .playBrowserPlaylist(songs, songIndex: i),
+                              ),
+                          ],
+                        );
+                      },
+                    )
+                  : songs.isEmpty
                   ? Center(
                       child: Text(
                         normalized.isEmpty
@@ -2477,6 +2710,10 @@ class _NativeTransferPageState extends State<_NativeTransferPage> {
   void initState() {
     super.initState();
     _links = musify.appLinks.uriLinkStream.listen(_onLink);
+    // The browser can open Zonic from Dropbox while it is fully closed. A
+    // stream only receives links delivered after this page exists, so also
+    // process the launch link to complete that first connection reliably.
+    unawaited(_handleInitialDropboxLink());
     unawaited(_loadDropbox());
   }
 
@@ -2508,6 +2745,20 @@ class _NativeTransferPageState extends State<_NativeTransferPage> {
   void _toast(String message) =>
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text(message)));
+
+  Future<void> _handleInitialDropboxLink() async {
+    try {
+      final saved = Hive.box('userNoBackup').get('zonicPendingDropboxLink');
+      if (saved is String && saved.isNotEmpty) {
+        await _onLink(Uri.tryParse(saved));
+        return;
+      }
+      await _onLink(await musify.appLinks.getInitialLink());
+    } catch (_) {
+      // Dropbox can still return through the regular stream while Zonic is
+      // already open; do not interrupt the transfer page for this fallback.
+    }
+  }
 
   Future<void> _importYoutube() async {
     final controller = TextEditingController();
@@ -2629,33 +2880,41 @@ class _NativeTransferPageState extends State<_NativeTransferPage> {
     }
     setState(() => _busy = true);
     try {
-      final response = await http.post(
-        Uri.parse('https://api.dropboxapi.com/oauth2/token'),
-        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-        body: {
-          'code': code,
-          'grant_type': 'authorization_code',
-          'client_id': 'bpdb3vsvzzdgzk7',
-          'redirect_uri': 'https://zonic-music.web.app/dropbox-callback',
-          'code_verifier': saved['verifier'].toString(),
-        },
-      );
+      final response = await http
+          .post(
+            Uri.parse('https://api.dropboxapi.com/oauth2/token'),
+            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+            body: {
+              'code': code,
+              'grant_type': 'authorization_code',
+              'client_id': 'bpdb3vsvzzdgzk7',
+              'redirect_uri': 'https://zonic-music.web.app/dropbox-callback',
+              'code_verifier': saved['verifier'].toString(),
+            },
+          )
+          .timeout(const Duration(seconds: 20));
       final data = jsonDecode(response.body) as Map;
-      if (response.statusCode != 200 || data['refresh_token'] == null)
+      if (response.statusCode != 200 || data['refresh_token'] == null) {
         throw StateError(
           data['error_description']?.toString() ?? 'Dropbox sign-in failed.',
         );
+      }
       await _account.writePrivate(
         'dropbox',
         jsonEncode({'version': 2, 'refreshToken': data['refresh_token']}),
       );
       await Hive.box('userNoBackup').delete(_dropboxKey);
+      await Hive.box('userNoBackup').delete('zonicPendingDropboxLink');
       if (mounted) {
         setState(() => _dropboxState = 'Connected to your Zonic account');
         _toast('Dropbox connected.');
       }
     } catch (error) {
-      if (mounted) _toast(error.toString());
+      if (mounted) {
+        _toast(
+          'Dropbox could not connect. ${error is StateError ? error.message : 'Check your connection and try again.'}',
+        );
+      }
     }
     if (mounted) setState(() => _busy = false);
   }
@@ -2667,15 +2926,17 @@ class _NativeTransferPageState extends State<_NativeTransferPage> {
     final refresh = saved['refreshToken']?.toString();
     if (refresh == null || refresh.isEmpty)
       throw StateError('Reconnect Dropbox to continue.');
-    final response = await http.post(
-      Uri.parse('https://api.dropboxapi.com/oauth2/token'),
-      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-      body: {
-        'refresh_token': refresh,
-        'grant_type': 'refresh_token',
-        'client_id': 'bpdb3vsvzzdgzk7',
-      },
-    );
+    final response = await http
+        .post(
+          Uri.parse('https://api.dropboxapi.com/oauth2/token'),
+          headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+          body: {
+            'refresh_token': refresh,
+            'grant_type': 'refresh_token',
+            'client_id': 'bpdb3vsvzzdgzk7',
+          },
+        )
+        .timeout(const Duration(seconds: 20));
     final value = jsonDecode(response.body) as Map;
     if (response.statusCode != 200 || value['access_token'] == null)
       throw StateError(
@@ -2709,26 +2970,31 @@ class _NativeTransferPageState extends State<_NativeTransferPage> {
   Future<void> _pushDropbox() async {
     setState(() => _busy = true);
     try {
-      final response = await http.post(
-        Uri.parse('https://content.dropboxapi.com/2/files/upload'),
-        headers: {
-          'Authorization': 'Bearer ${await _dropboxAccessToken()}',
-          'Content-Type': 'application/octet-stream',
-          'Dropbox-API-Arg': jsonEncode({
-            'path': '/zonic-playlists.json',
-            'mode': 'overwrite',
-            'autorename': false,
-            'mute': true,
-          }),
-        },
-        body: jsonEncode({
-          'schemaVersion': 2,
-          'updatedAt': DateTime.now().millisecondsSinceEpoch,
-          'playlists': _cloudPlaylists(),
-        }),
-      );
-      if (response.statusCode < 200 || response.statusCode >= 300)
-        throw StateError('Could not upload playlists to Dropbox.');
+      final response = await http
+          .post(
+            Uri.parse('https://content.dropboxapi.com/2/files/upload'),
+            headers: {
+              'Authorization': 'Bearer ${await _dropboxAccessToken()}',
+              'Content-Type': 'application/octet-stream',
+              'Dropbox-API-Arg': jsonEncode({
+                'path': '/zonic-playlists.json',
+                'mode': 'overwrite',
+                'autorename': false,
+                'mute': true,
+              }),
+            },
+            body: jsonEncode({
+              'schemaVersion': 2,
+              'updatedAt': DateTime.now().millisecondsSinceEpoch,
+              'playlists': _cloudPlaylists(),
+            }),
+          )
+          .timeout(const Duration(seconds: 25));
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw StateError(
+          'Could not upload playlists to Dropbox (${response.statusCode}).',
+        );
+      }
       if (mounted) _toast('Playlists synced to Dropbox.');
     } catch (error) {
       if (mounted) _toast(error.toString());
@@ -2739,13 +3005,15 @@ class _NativeTransferPageState extends State<_NativeTransferPage> {
   Future<void> _pullDropbox() async {
     setState(() => _busy = true);
     try {
-      final response = await http.post(
-        Uri.parse('https://content.dropboxapi.com/2/files/download'),
-        headers: {
-          'Authorization': 'Bearer ${await _dropboxAccessToken()}',
-          'Dropbox-API-Arg': jsonEncode({'path': '/zonic-playlists.json'}),
-        },
-      );
+      final response = await http
+          .post(
+            Uri.parse('https://content.dropboxapi.com/2/files/download'),
+            headers: {
+              'Authorization': 'Bearer ${await _dropboxAccessToken()}',
+              'Dropbox-API-Arg': jsonEncode({'path': '/zonic-playlists.json'}),
+            },
+          )
+          .timeout(const Duration(seconds: 25));
       if (response.statusCode == 409)
         throw StateError('No Zonic playlist backup was found in Dropbox.');
       final data = jsonDecode(response.body) as Map;
