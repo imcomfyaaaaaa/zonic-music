@@ -26,14 +26,15 @@ import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:material_ui/material_ui.dart';
-import 'package:package_info_plus/package_info_plus.dart';
 import 'package:musify/extensions/l10n.dart';
 import 'package:musify/main.dart';
 import 'package:musify/services/data_manager.dart';
 import 'package:musify/services/router_service.dart';
 import 'package:musify/services/settings_manager.dart';
+import 'package:musify/services/update_installer.dart';
 import 'package:musify/utilities/url_launcher.dart';
 import 'package:musify/widgets/auto_format_text.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 const String releasesUrl =
     'https://api.github.com/repos/imcomfyaaaaaa/zonic-music/releases/latest';
@@ -41,77 +42,171 @@ const String downloadUrlKey = 'url';
 const String downloadUrlArm64Key = 'arm64url';
 const String downloadFilename = 'Zonic.apk';
 
+class ZonicRelease {
+  const ZonicRelease({
+    required this.version,
+    required this.pageUrl,
+    required this.apkUrl,
+    required this.notes,
+    this.digest,
+  });
+
+  final String version;
+  final String pageUrl;
+  final String apkUrl;
+  final String notes;
+  final String? digest;
+}
+
+ZonicRelease parseZonicRelease(Map<String, dynamic> data) {
+  final tag = data['tag_name']?.toString() ?? '';
+  final version = tag.replaceFirst(RegExp('^v', caseSensitive: false), '');
+  if (version.isEmpty || !RegExp(r'^\d+(\.\d+)+$').hasMatch(version)) {
+    throw const FormatException('GitHub release has no valid version');
+  }
+  final assets = (data['assets'] as List? ?? const [])
+      .whereType<Map>()
+      .where(
+        (asset) =>
+            asset['name']?.toString().toLowerCase().endsWith('.apk') == true,
+      )
+      .toList();
+  final apk = assets.firstWhere(
+    (asset) => asset['name'].toString().toLowerCase().contains('arm64'),
+    orElse: () => assets.isEmpty ? <String, dynamic>{} : assets.first,
+  );
+  final pageUrl =
+      data['html_url']?.toString() ??
+      'https://github.com/imcomfyaaaaaa/zonic-music/releases/tag/$tag';
+  return ZonicRelease(
+    version: version,
+    pageUrl: pageUrl,
+    apkUrl: apk['browser_download_url']?.toString() ?? '',
+    notes: data['body']?.toString() ?? '',
+    digest: apk['digest']?.toString(),
+  );
+}
+
+ZonicRelease parseZonicReleaseFeed(String feed) {
+  final entry = RegExp(r'<entry>([\s\S]*?)</entry>').firstMatch(feed)?.group(1);
+  final tag = entry == null
+      ? null
+      : RegExp(r'<id>[^<]*/(v\d+(?:\.\d+)+)</id>').firstMatch(entry)?.group(1);
+  if (tag == null) throw const FormatException('No release in GitHub feed');
+  return ZonicRelease(
+    version: tag.substring(1),
+    pageUrl: 'https://github.com/imcomfyaaaaaa/zonic-music/releases/tag/$tag',
+    apkUrl:
+        'https://github.com/imcomfyaaaaaa/zonic-music/releases/download/$tag/app-arm64-v8a-github-release.apk',
+    notes: '',
+  );
+}
+
+Future<ZonicRelease> fetchLatestZonicRelease({http.Client? client}) async {
+  final ownClient = client == null;
+  client ??= http.Client();
+  try {
+    try {
+      final response = await client
+          .get(
+            Uri.parse(releasesUrl).replace(
+              queryParameters: {
+                't': '${DateTime.now().millisecondsSinceEpoch}',
+              },
+            ),
+            headers: const {
+              'Accept': 'application/vnd.github+json',
+              'User-Agent': 'Zonic-Music-Updater',
+              'Cache-Control': 'no-cache',
+            },
+          )
+          .timeout(const Duration(seconds: 12));
+      if (response.statusCode != 200) {
+        throw HttpException('GitHub API returned ${response.statusCode}');
+      }
+      return parseZonicRelease(
+        json.decode(response.body) as Map<String, dynamic>,
+      );
+    } catch (error) {
+      logger.log(
+        'GitHub release API unavailable; trying release feed',
+        error: error,
+      );
+      final response = await client
+          .get(
+            Uri.parse(
+              'https://github.com/imcomfyaaaaaa/zonic-music/releases.atom',
+            ),
+            headers: const {'User-Agent': 'Zonic-Music-Updater'},
+          )
+          .timeout(const Duration(seconds: 12));
+      if (response.statusCode != 200) {
+        throw HttpException(
+          'GitHub release feed returned ${response.statusCode}',
+        );
+      }
+      return parseZonicReleaseFeed(response.body);
+    }
+  } finally {
+    if (ownClient) client.close();
+  }
+}
+
 Future<void> checkAppUpdates({
   BuildContext? displayContext,
   bool showNoUpdate = false,
 }) async {
-  try {
-    final releasesRequest = await http
-        .get(
-          Uri.parse(releasesUrl),
-          headers: const {
-            'Accept': 'application/vnd.github+json',
-            'User-Agent': 'Zonic-Music-Updater',
-            'X-GitHub-Api-Version': '2022-11-28',
-            'Cache-Control': 'no-cache',
-          },
-        )
-        .timeout(const Duration(seconds: 12));
-    if (releasesRequest.statusCode != 200) {
-      logger.log(
-        'Fetch Zonic release returned status code ${releasesRequest.statusCode}',
-      );
-      _showUpdateMessage(
-        displayContext,
-        'Could not check for updates. Please try again later.',
-        show: showNoUpdate,
-      );
-      return;
-    }
-    final releasesResponse =
-        json.decode(releasesRequest.body) as Map<String, dynamic>;
-    final latestVersion = (releasesResponse['tag_name']?.toString() ?? '')
-        .replaceFirst(RegExp(r'^v', caseSensitive: false), '');
-    final installedVersion = (await PackageInfo.fromPlatform()).version;
-    if (latestVersion.isEmpty ||
-        !isLatestVersionHigher(installedVersion, latestVersion)) {
-      _showUpdateMessage(
-        displayContext,
-        'Zonic is up to date (v$installedVersion).',
-        show: showNoUpdate,
-      );
-      return;
-    }
-    final assets = (releasesResponse['assets'] as List? ?? const []);
-    // Prefer the arm64 build used by modern Android phones, then fall back to
-    // any APK. GitHub releases may contain source archives alongside APKs.
-    final apkAssets = assets
-        .whereType<Map>()
-        .where(
-          (asset) =>
-              asset['name']?.toString().toLowerCase().endsWith('.apk') == true,
-        )
-        .toList();
-    final apk = apkAssets.firstWhere(
-      (asset) => asset['name'].toString().toLowerCase().contains('arm64'),
-      orElse: () => apkAssets.isEmpty ? <String, dynamic>{} : apkAssets.first,
+  final context = displayContext ?? NavigationManager().context;
+  if (showNoUpdate && context.mounted) {
+    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+      const SnackBar(content: Text('Checking GitHub for Zonic updates…')),
     );
-    final downloadUrl =
-        apk['browser_download_url']?.toString() ??
-        releasesResponse['html_url']?.toString();
-    if (downloadUrl == null || downloadUrl.isEmpty) {
+  }
+  try {
+    final release = await fetchLatestZonicRelease();
+    final installedVersion = (await PackageInfo.fromPlatform()).version;
+    if (!context.mounted) return;
+    ScaffoldMessenger.maybeOf(context)?.hideCurrentSnackBar();
+    if (!isLatestVersionHigher(installedVersion, release.version)) {
+      if (showNoUpdate) {
+        await showDialog<void>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: const Text('Zonic is up to date'),
+            content: Text(
+              'Installed: v$installedVersion\nLatest on GitHub: v${release.version}',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: const Text('Close'),
+              ),
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(dialogContext);
+                  launchURL(Uri.parse(release.pageUrl));
+                },
+                child: const Text('View release'),
+              ),
+            ],
+          ),
+        );
+      }
+      return;
+    }
+    if (release.apkUrl.isEmpty) {
       _showUpdateMessage(
-        displayContext,
+        context,
         'An update was found, but its download is not ready yet.',
-        show: showNoUpdate,
+        show: true,
       );
       return;
     }
 
-    await showDialog(
-      context: displayContext ?? NavigationManager().context,
-      builder: (BuildContext context) {
-        final colorScheme = Theme.of(context).colorScheme;
+    await showDialog<void>(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        final colorScheme = Theme.of(dialogContext).colorScheme;
 
         return AlertDialog(
           content: Column(
@@ -131,7 +226,8 @@ Future<void> checkAppUpdates({
               ),
               const SizedBox(height: 16),
               Text(
-                context.l10n!.appUpdateIsAvailable,
+                dialogContext.l10n?.appUpdateIsAvailable ??
+                    'Zonic update available',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 22,
@@ -150,7 +246,7 @@ Future<void> checkAppUpdates({
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
-                  'V$latestVersion',
+                  'V${release.version}',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 14,
@@ -160,40 +256,52 @@ Future<void> checkAppUpdates({
                 ),
               ),
               const SizedBox(height: 16),
-              Container(
-                constraints: BoxConstraints(
-                  maxHeight: MediaQuery.sizeOf(context).height / 2.5,
+              if (release.notes.isNotEmpty)
+                Container(
+                  constraints: BoxConstraints(
+                    maxHeight: MediaQuery.sizeOf(dialogContext).height / 2.5,
+                  ),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: colorScheme.surfaceContainerLow,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: SingleChildScrollView(
+                    child: AutoFormatText(text: release.notes),
+                  ),
                 ),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: colorScheme.surfaceContainerLow,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: SingleChildScrollView(
-                  child: AutoFormatText(text: releasesResponse['body']),
-                ),
-              ),
             ],
           ),
           actionsAlignment: MainAxisAlignment.center,
           actions: <Widget>[
             OutlinedButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => Navigator.pop(dialogContext),
               style: OutlinedButton.styleFrom(
                 side: BorderSide(color: colorScheme.outline),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
-              child: Text(context.l10n!.cancel),
+              child: Text(dialogContext.l10n?.cancel ?? 'Cancel'),
             ),
             FilledButton.icon(
               onPressed: () {
-                launchURL(Uri.parse(downloadUrl));
-                Navigator.pop(context);
+                Navigator.pop(dialogContext);
+                if (Platform.isAndroid) {
+                  showZonicUpdateInstaller(
+                    context,
+                    version: release.version,
+                    url: release.apkUrl,
+                    digest: release.digest,
+                  );
+                } else {
+                  launchURL(Uri.parse(release.apkUrl));
+                }
               },
               icon: const Icon(FluentIcons.arrow_download_20_regular),
-              label: Text(context.l10n!.download),
+              label: Text(
+                Platform.isAndroid ? 'Download & install' : 'Download',
+              ),
             ),
           ],
         );
@@ -202,8 +310,8 @@ Future<void> checkAppUpdates({
   } catch (e, stackTrace) {
     logger.log('Error in checkAppUpdates', error: e, stackTrace: stackTrace);
     _showUpdateMessage(
-      displayContext,
-      'Could not check for updates. Please try again later.',
+      context,
+      'Could not check for updates: $e',
       show: showNoUpdate,
     );
   }
@@ -278,17 +386,23 @@ void showUpdateCheckDialog(BuildContext context) {
 }
 
 bool isLatestVersionHigher(String appVersion, String latestVersion) {
-  final parsedAppVersion = appVersion.split('.');
-  final parsedAppLatestVersion = latestVersion.split('.');
+  final parsedAppVersion = RegExp(r'\d+')
+      .allMatches(appVersion)
+      .take(3)
+      .map((match) => int.parse(match.group(0)!))
+      .toList();
+  final parsedAppLatestVersion = RegExp(r'\d+')
+      .allMatches(latestVersion)
+      .take(3)
+      .map((match) => int.parse(match.group(0)!))
+      .toList();
   final length = parsedAppVersion.length > parsedAppLatestVersion.length
       ? parsedAppVersion.length
       : parsedAppLatestVersion.length;
   for (var i = 0; i < length; i++) {
-    final value1 = i < parsedAppVersion.length
-        ? int.parse(parsedAppVersion[i])
-        : 0;
+    final value1 = i < parsedAppVersion.length ? parsedAppVersion[i] : 0;
     final value2 = i < parsedAppLatestVersion.length
-        ? int.parse(parsedAppLatestVersion[i])
+        ? parsedAppLatestVersion[i]
         : 0;
     if (value2 > value1) {
       return true;

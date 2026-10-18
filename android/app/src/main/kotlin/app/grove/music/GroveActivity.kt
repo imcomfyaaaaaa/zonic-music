@@ -2,14 +2,18 @@ package app.grove.music
 
 import android.app.UiModeManager
 import android.content.Context
+import android.content.Intent
 import android.content.res.Configuration
+import android.net.Uri
 import android.os.Build
 import android.Manifest
 import android.content.pm.PackageManager
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import android.content.ContentValues
 import android.provider.MediaStore
+import android.provider.Settings
 import java.io.File
 import com.ryanheise.audioservice.AudioServiceActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -59,6 +63,31 @@ class GroveActivity : AudioServiceActivity() {
           else -> { result.error("invalid_action", "Unknown Spotify import action", null); return@setMethodCallHandler }
         }
         result.success(true)
+      } else if (call.method == "installUpdate") {
+        try {
+          val path = call.argument<String>("path") ?: throw IllegalArgumentException("Missing APK path")
+          val updateDirectory = File(cacheDir, "updates").canonicalFile
+          val apk = File(path).canonicalFile
+          if (!apk.path.startsWith(updateDirectory.path + File.separator) ||
+              !apk.name.endsWith(".apk") || !apk.isFile || apk.length() < 1024 * 1024) {
+            throw IllegalArgumentException("Invalid update APK")
+          }
+          if (Build.VERSION.SDK_INT >= 26 && !packageManager.canRequestPackageInstalls()) {
+            startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+              Uri.parse("package:$packageName")))
+            result.error("permission_required", "Allow installs from Zonic and try again", null)
+            return@setMethodCallHandler
+          }
+          val uri = FileProvider.getUriForFile(this, "$packageName.updates", apk)
+          val install = Intent(Intent.ACTION_INSTALL_PACKAGE).apply {
+            data = uri
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+          }
+          startActivity(install)
+          result.success(true)
+        } catch (error: Exception) {
+          result.error("install_failed", error.message, null)
+        }
       } else if (call.method == "exportToDownloads" && Build.VERSION.SDK_INT >= 29) {
         try {
           val source = File(call.argument<String>("path")!!)

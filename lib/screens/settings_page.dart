@@ -434,7 +434,10 @@ class SettingsPage extends StatelessWidget {
             context.l10n!.downloadAppUpdate,
             FluentIcons.arrow_download_24_regular,
             borderRadius: commonCustomBarRadiusLast,
-            onTap: checkAppUpdates,
+            onTap: () => checkAppUpdates(
+              displayContext: context,
+              showNoUpdate: true,
+            ),
           ),
       ],
     );
