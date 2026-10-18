@@ -110,6 +110,12 @@ class _TimeMachinePageState extends State<TimeMachinePage> {
               context.l10n!.noListeningStats,
               style: Theme.of(context).textTheme.titleMedium,
             ),
+            const SizedBox(height: 8),
+            Text(
+              'Play a few songs and your listening recap will appear here.',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
           ],
         ),
       ),

@@ -181,6 +181,12 @@ class _EqualizerPageState extends State<EqualizerPage> {
     }
   }
 
+  Future<void> _retryEqualizer() async {
+    if (!mounted) return;
+    setState(() => _isLoading = true);
+    await _loadEqualizer();
+  }
+
   String _formatFrequency(double hz) {
     if (hz >= 1000) {
       return hz >= 10000
@@ -219,10 +225,34 @@ class _EqualizerPageState extends State<EqualizerPage> {
           ? Center(
               child: Padding(
                 padding: commonSingleChildScrollViewPadding,
-                child: Text(
-                  context.l10n!.equalizerInitFailed,
-                  style: Theme.of(context).textTheme.bodyLarge,
-                  textAlign: TextAlign.center,
+                child: Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          FluentIcons.music_note_2_24_regular,
+                          size: 42,
+                          color: colorScheme.primary,
+                        ),
+                        const SizedBox(height: 14),
+                        Text(
+                          context.l10n!.equalizerInitFailed,
+                          style: Theme.of(context).textTheme.bodyLarge,
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 16),
+                        FilledButton.icon(
+                          onPressed: _retryEqualizer,
+                          icon: const Icon(
+                            FluentIcons.arrow_clockwise_20_regular,
+                          ),
+                          label: const Text('Try again'),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             )
