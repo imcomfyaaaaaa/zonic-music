@@ -47,7 +47,15 @@ Future<void> checkAppUpdates({
 }) async {
   try {
     final releasesRequest = await http
-        .get(Uri.parse(releasesUrl))
+        .get(
+          Uri.parse(releasesUrl),
+          headers: const {
+            'Accept': 'application/vnd.github+json',
+            'User-Agent': 'Zonic-Music-Updater',
+            'X-GitHub-Api-Version': '2022-11-28',
+            'Cache-Control': 'no-cache',
+          },
+        )
         .timeout(const Duration(seconds: 12));
     if (releasesRequest.statusCode != 200) {
       logger.log(
@@ -75,13 +83,21 @@ Future<void> checkAppUpdates({
       return;
     }
     final assets = (releasesResponse['assets'] as List? ?? const []);
-    final apk = assets.cast<Map?>().firstWhere(
-      (asset) =>
-          asset?['name']?.toString().toLowerCase().endsWith('.apk') == true,
-      orElse: () => null,
+    // Prefer the arm64 build used by modern Android phones, then fall back to
+    // any APK. GitHub releases may contain source archives alongside APKs.
+    final apkAssets = assets
+        .whereType<Map>()
+        .where(
+          (asset) =>
+              asset['name']?.toString().toLowerCase().endsWith('.apk') == true,
+        )
+        .toList();
+    final apk = apkAssets.firstWhere(
+      (asset) => asset['name'].toString().toLowerCase().contains('arm64'),
+      orElse: () => apkAssets.isEmpty ? <String, dynamic>{} : apkAssets.first,
     );
     final downloadUrl =
-        apk?['browser_download_url']?.toString() ??
+        apk['browser_download_url']?.toString() ??
         releasesResponse['html_url']?.toString();
     if (downloadUrl == null || downloadUrl.isEmpty) {
       _showUpdateMessage(
