@@ -37,6 +37,7 @@ class ZonicPhoneApp extends StatefulWidget {
 }
 
 class _ZonicPhoneAppState extends State<ZonicPhoneApp> {
+  final _navigatorKey = GlobalKey<NavigatorState>();
   int index = 0;
   bool _checkedForUpdate = false;
   StreamSubscription<Uri?>? _dropboxLinks;
@@ -78,8 +79,20 @@ class _ZonicPhoneAppState extends State<ZonicPhoneApp> {
     );
   }
 
+  void _selectTab(int value) {
+    _navigatorKey.currentState?.popUntil((route) => route.isFirst);
+    setState(() => index = value);
+  }
+
+  void _openPlayer() {
+    _navigatorKey.currentState?.push(
+      MaterialPageRoute<void>(builder: (_) => const _FullPlayer()),
+    );
+  }
+
   @override
   Widget build(BuildContext context) => MaterialApp(
+    navigatorKey: _navigatorKey,
     debugShowCheckedModeBanner: false,
     title: 'Zonic',
     localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -128,6 +141,22 @@ class _ZonicPhoneAppState extends State<ZonicPhoneApp> {
         ),
       ),
     ),
+    builder: (context, child) => Material(
+      color: zonicBackground,
+      child: Column(
+        children: [
+          Expanded(child: child ?? const SizedBox.shrink()),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(8, 0, 8, 4),
+            child: ZonicMiniPlayer(onExpand: _openPlayer),
+          ),
+          SafeArea(
+            top: false,
+            child: ZonicPhoneNavigation(index: index, onChanged: _selectTab),
+          ),
+        ],
+      ),
+    ),
     home: Builder(
       builder: (context) {
         _autoCheck(context);
@@ -154,23 +183,6 @@ class _ZonicPhoneAppState extends State<ZonicPhoneApp> {
                 ),
               ],
             ),
-          ),
-          bottomNavigationBar: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(8, 0, 8, 4),
-                child: ZonicMiniPlayer(
-                  onExpand: () => Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const _FullPlayer()),
-                  ),
-                ),
-              ),
-              ZonicPhoneNavigation(
-                index: index,
-                onChanged: (value) => setState(() => index = value),
-              ),
-            ],
           ),
         );
       },
