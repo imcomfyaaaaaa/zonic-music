@@ -11,12 +11,12 @@ import 'package:hive/hive.dart';
 import 'package:http/http.dart' as http;
 import 'package:musify/grove/native_account.dart';
 import 'package:musify/grove/native_widgets.dart';
+import 'package:musify/grove/native_settings_page.dart';
 import 'package:musify/localization/app_localizations.dart';
 import 'package:musify/main.dart' as musify;
 import 'package:musify/screens/equalizer_page.dart';
 import 'package:musify/screens/import_spotify_playlist_page.dart';
 import 'package:musify/screens/radio_stations_page.dart';
-import 'package:musify/screens/settings_page.dart';
 import 'package:musify/screens/time_machine_page.dart';
 import 'package:musify/services/artist_service.dart';
 import 'package:musify/services/common_services.dart';
@@ -587,7 +587,7 @@ class _AdvancedFeatures extends StatelessWidget {
           icon: Icons.settings_suggest_rounded,
           title: 'Playback, proxy & updates',
           subtitle: 'All engine, quality, proxy and update controls',
-          onTap: () => _open(context, const SettingsPage()),
+          onTap: () => _open(context, const ZonicSettingsPage()),
         ),
         _AdvancedTile(
           icon: Icons.cloud_sync_rounded,

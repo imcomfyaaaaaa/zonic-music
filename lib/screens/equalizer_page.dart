@@ -22,7 +22,7 @@
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:musify/constants/app_constants.dart';
+import 'package:musify/grove/native_widgets.dart';
 import 'package:musify/extensions/l10n.dart';
 import 'package:musify/main.dart';
 import 'package:musify/services/settings_manager.dart';
@@ -204,61 +204,109 @@ class _EqualizerPageState extends State<EqualizerPage> {
       appBar: AppBar(
         title: Text(context.l10n!.equalizer),
         actions: [
-          IconButton(
-            icon: const Icon(FluentIcons.arrow_clockwise_24_filled),
-            tooltip: context.l10n!.equalizerResetBands,
-            onPressed: () async {
-              await audioHandler.resetEqualizerBands();
-              final params = _params;
-              if (!mounted || params == null) return;
-              setState(() {
-                _gains = List<double>.filled(params.bands.length, 0);
-                _activePreset = null;
-              });
-            },
-          ),
+          if (_params != null)
+            IconButton(
+              icon: const Icon(FluentIcons.arrow_clockwise_24_filled),
+              tooltip: context.l10n!.equalizerResetBands,
+              onPressed: () async {
+                await audioHandler.resetEqualizerBands();
+                final params = _params;
+                if (!mounted || params == null) return;
+                setState(() {
+                  _gains = List<double>.filled(params.bands.length, 0);
+                  _activePreset = null;
+                });
+              },
+            ),
         ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _params == null
-          ? Center(
-              child: Padding(
-                padding: commonSingleChildScrollViewPadding,
-                child: Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          FluentIcons.music_note_2_24_regular,
-                          size: 42,
-                          color: colorScheme.primary,
-                        ),
-                        const SizedBox(height: 14),
-                        Text(
-                          context.l10n!.equalizerInitFailed,
-                          style: Theme.of(context).textTheme.bodyLarge,
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 16),
-                        FilledButton.icon(
-                          onPressed: _retryEqualizer,
-                          icon: const Icon(
-                            FluentIcons.arrow_clockwise_20_regular,
-                          ),
-                          label: const Text('Try again'),
-                        ),
-                      ],
-                    ),
+          ? ListView(
+              padding: const EdgeInsets.fromLTRB(18, 20, 18, 40),
+              children: [
+                const Text(
+                  'MAKE IT YOURS',
+                  style: TextStyle(
+                    color: zonicAccent,
+                    fontSize: 12,
+                    letterSpacing: 1.8,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
-              ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Shape your sound',
+                  style: TextStyle(fontSize: 29, fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 24),
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: zonicSurface,
+                    borderRadius: BorderRadius.circular(22),
+                    border: Border.all(color: const Color(0xff35323e)),
+                  ),
+                  child: Column(
+                    children: [
+                      Container(
+                        width: 70,
+                        height: 70,
+                        decoration: const BoxDecoration(
+                          color: Color(0xff383149),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.graphic_eq_rounded,
+                          size: 34,
+                          color: zonicAccent,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      const Text(
+                        'Equalizer is waiting for audio',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 19,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 9),
+                      const Text(
+                        'Play a song, then come back to adjust presets and frequency bands.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: zonicMuted, height: 1.4),
+                      ),
+                      const SizedBox(height: 22),
+                      FilledButton.icon(
+                        onPressed: _retryEqualizer,
+                        icon: const Icon(Icons.refresh_rounded),
+                        label: const Text('Try again'),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             )
           : ListView(
-              padding: commonSingleChildScrollViewPadding,
+              padding: const EdgeInsets.fromLTRB(18, 12, 18, 40),
               children: [
+                const Text(
+                  'MAKE IT YOURS',
+                  style: TextStyle(
+                    color: zonicAccent,
+                    fontSize: 12,
+                    letterSpacing: 1.8,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Shape your sound',
+                  style: TextStyle(fontSize: 29, fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 22),
                 // Enable/Disable Section
                 Card.filled(
                   child: Padding(

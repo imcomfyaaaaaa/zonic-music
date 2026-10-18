@@ -28,8 +28,10 @@ import 'package:intl/intl.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:musify/constants/app_constants.dart';
 import 'package:musify/extensions/l10n.dart';
+import 'package:musify/grove/native_widgets.dart';
 import 'package:musify/main.dart';
 import 'package:musify/screens/user_songs_page.dart';
+import 'package:musify/services/data_manager.dart';
 import 'package:musify/services/listening_stats_service.dart';
 import 'package:musify/services/settings_manager.dart';
 import 'package:musify/utilities/app_utils.dart';
@@ -92,32 +94,92 @@ class _TimeMachinePageState extends State<TimeMachinePage> {
   }
 
   Widget _buildEmptyState(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
+    final statsOff = !wrappedEnabled.value;
     return Scaffold(
       appBar: AppBar(title: Text(context.l10n!.timeMachine)),
-      body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              FluentIcons.clock_24_regular,
-              size: 42,
-              color: colorScheme.primary,
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(18, 20, 18, 40),
+        children: [
+          const Text(
+            'YOUR LISTENING STORY',
+            style: TextStyle(
+              color: zonicAccent,
+              fontSize: 12,
+              letterSpacing: 1.8,
+              fontWeight: FontWeight.w800,
             ),
-            const SizedBox(height: 12),
-            Text(
-              context.l10n!.noListeningStats,
-              style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Time Machine',
+            style: TextStyle(fontSize: 29, fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Your favorite songs and listening time, month by month.',
+            style: TextStyle(color: zonicMuted),
+          ),
+          const SizedBox(height: 24),
+          Container(
+            padding: const EdgeInsets.fromLTRB(24, 36, 24, 36),
+            decoration: BoxDecoration(
+              color: zonicSurface,
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(color: const Color(0xff35323e)),
             ),
-            const SizedBox(height: 8),
-            Text(
-              'Play a few songs and your listening recap will appear here.',
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyMedium,
+            child: Column(
+              children: [
+                Container(
+                  width: 72,
+                  height: 72,
+                  decoration: const BoxDecoration(
+                    color: Color(0xff383149),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.history_rounded,
+                    size: 34,
+                    color: zonicAccent,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  statsOff
+                      ? 'Listening stats are off'
+                      : 'Your story starts here',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  statsOff
+                      ? 'Turn on listening stats to build your monthly recap.'
+                      : 'Play a few songs and your listening recap will appear here.',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: zonicMuted, height: 1.4),
+                ),
+                if (statsOff) ...[
+                  const SizedBox(height: 22),
+                  FilledButton.icon(
+                    onPressed: () async {
+                      wrappedEnabled.value = true;
+                      await addOrUpdateData<bool>(
+                        'settings',
+                        'wrappedEnabled',
+                        true,
+                      );
+                    },
+                    icon: const Icon(Icons.bar_chart_rounded),
+                    label: const Text('Turn on listening stats'),
+                  ),
+                ],
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
