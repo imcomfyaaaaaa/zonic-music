@@ -5,7 +5,7 @@ repository: https://github.com/imcomfyaaaaaa/zonic-music
 issue_tracker: https://github.com/imcomfyaaaaaa/zonic-music/issues
 
 publish_to: 'none'
-version: 0.2.19+21
+version: 0.2.20+22
 
 environment:
   sdk: '>=3.13.0 <4.0.0'
@@ -34,6 +34,7 @@ dependencies:
   intl: ^0.20.2
   just_audio: ^0.10.6
   material_ui: ^1.6.0
+  flutter_svg: ^2.0.17
   path_provider: ^2.1.6
   package_info_plus: ^10.2.2
   receive_sharing_intent:
@@ -69,6 +70,7 @@ flutter:
     - web-app/dist/src/ai/runtime/
     - assets/licenses/
     - assets/icons/zonic_icon.png
+    - assets/brand/zonic-wordmark-on-dark.svg
 
   fonts:
     - family: paytoneOne

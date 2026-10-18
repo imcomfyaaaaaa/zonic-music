@@ -250,6 +250,22 @@ class ZonicMiniPlayer extends StatelessWidget {
   );
 }
 
+/// A shared, safe-area aware mini player for pages opened from the main tabs.
+class ZonicMiniPlayerBar extends StatelessWidget {
+  const ZonicMiniPlayerBar({super.key, required this.onExpand});
+
+  final VoidCallback onExpand;
+
+  @override
+  Widget build(BuildContext context) => SafeArea(
+    top: false,
+    child: Padding(
+      padding: const EdgeInsets.fromLTRB(8, 4, 8, 6),
+      child: ZonicMiniPlayer(onExpand: onExpand),
+    ),
+  );
+}
+
 class ZonicPhoneNavigation extends StatelessWidget {
   const ZonicPhoneNavigation({
     super.key,

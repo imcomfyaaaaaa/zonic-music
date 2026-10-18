@@ -6,6 +6,7 @@ import 'dart:math';
 import 'package:audio_service/audio_service.dart';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:hive/hive.dart';
 import 'package:http/http.dart' as http;
 import 'package:musify/grove/native_account.dart';
@@ -210,27 +211,14 @@ class _ZonicWordmark extends StatelessWidget {
   final double fontSize;
 
   @override
-  Widget build(BuildContext context) => RichText(
-    text: TextSpan(
-      style: TextStyle(
-        fontSize: fontSize,
-        fontWeight: FontWeight.w900,
-        letterSpacing: -1.5,
-      ),
-      children: const [
-        TextSpan(
-          text: 'z',
-          style: TextStyle(color: Colors.white),
-        ),
-        TextSpan(
-          text: 'o',
-          style: TextStyle(color: Color(0xffbc8cff)),
-        ),
-        TextSpan(
-          text: 'nic',
-          style: TextStyle(color: Colors.white),
-        ),
-      ],
+  Widget build(BuildContext context) => SizedBox(
+    height: fontSize,
+    width: fontSize * 3.05,
+    child: SvgPicture.asset(
+      'assets/brand/zonic-wordmark-on-dark.svg',
+      fit: BoxFit.contain,
+      alignment: Alignment.centerLeft,
+      semanticsLabel: 'Zonic',
     ),
   );
 }
@@ -1307,6 +1295,11 @@ class _NativePlaylistPageState extends State<_NativePlaylistPage> {
             ),
           ],
         ),
+        bottomNavigationBar: ZonicMiniPlayerBar(
+          onExpand: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const _FullPlayer()),
+          ),
+        ),
         body: Column(
           children: [
             Padding(
@@ -1559,6 +1552,11 @@ class _NativeCollectionPageState extends State<_NativeCollectionPage> {
       backgroundColor: zonicBackground,
       foregroundColor: Colors.white,
       title: Text(title),
+    ),
+    bottomNavigationBar: ZonicMiniPlayerBar(
+      onExpand: () => Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const _FullPlayer()),
+      ),
     ),
     body: ValueListenableBuilder<List>(
       valueListenable: source,
