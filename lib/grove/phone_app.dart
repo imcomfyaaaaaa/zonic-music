@@ -3009,10 +3009,31 @@ class _NativeTransferPageState extends State<_NativeTransferPage> {
     return value['access_token'].toString();
   }
 
+  String _cloudPlaylistId(Map playlist) {
+    final savedId = playlist['ytid']?.toString().trim();
+    if (savedId != null && savedId.isNotEmpty) return savedId;
+    // Older locally-created playlists did not always have an ID. Give them a
+    // deterministic cloud ID so they can be restored and de-duplicated.
+    final name = playlist['title']?.toString().trim().toLowerCase() ?? '';
+    return 'zonic-${sha1.convert(utf8.encode(name)).toString().substring(0, 16)}';
+  }
+
+  Map<String, Object?> _cloudSong(Map song) => Map<String, Object?>.from(
+    song.map((key, value) => MapEntry(key.toString(), value)),
+  );
+
+  String _cloudSongId(Map song) {
+    final id = song['ytid'] ?? song['videoId'] ?? song['id'];
+    if (id != null && id.toString().isNotEmpty) return id.toString();
+    return '${song['title'] ?? ''}|${song['artist'] ?? ''}'
+        .trim()
+        .toLowerCase();
+  }
+
   List<Map<String, Object?>> _cloudPlaylists() => userCustomPlaylists.value
       .map(
         (playlist) => <String, Object?>{
-          'id': playlist['ytid']?.toString() ?? '',
+          'id': _cloudPlaylistId(playlist),
           'name': playlist['title']?.toString() ?? 'Untitled playlist',
           'artwork': playlist['image']?.toString(),
           'source': playlist['source']?.toString() ?? 'user-created',
@@ -3048,9 +3069,13 @@ class _NativeTransferPageState extends State<_NativeTransferPage> {
               }),
             },
             body: jsonEncode({
-              'schemaVersion': 2,
+              'schemaVersion': 3,
               'updatedAt': DateTime.now().millisecondsSinceEpoch,
               'playlists': _cloudPlaylists(),
+              'likedSongs': userLikedSongsList.value
+                  .whereType<Map>()
+                  .map(_cloudSong)
+                  .toList(),
             }),
           )
           .timeout(const Duration(seconds: 25));
@@ -3059,7 +3084,9 @@ class _NativeTransferPageState extends State<_NativeTransferPage> {
           'Could not upload playlists to Dropbox (${response.statusCode}).',
         );
       }
-      if (mounted) _toast('Playlists synced to Dropbox.');
+      if (mounted) {
+        _toast('Playlists and ${userLikedSongsList.value.length} liked songs synced.');
+      }
     } catch (error) {
       if (mounted) _toast(error.toString());
     }
@@ -3083,7 +3110,7 @@ class _NativeTransferPageState extends State<_NativeTransferPage> {
       final data = jsonDecode(response.body) as Map;
       final remote = (data['playlists'] as List? ?? const []).whereType<Map>();
       final existing = List<Map>.from(userCustomPlaylists.value);
-      var imported = 0;
+      var playlistsImported = 0;
       for (final item in remote) {
         final id = item['id']?.toString();
         if (id == null ||
@@ -3099,15 +3126,28 @@ class _NativeTransferPageState extends State<_NativeTransferPage> {
             (item['tracks'] as List? ?? const []).whereType<Map>(),
           ),
         });
-        imported++;
+        playlistsImported++;
       }
       userCustomPlaylists.value = existing;
       await addOrUpdateData<List>('user', 'customPlaylists', existing);
+      final currentLikes = userLikedSongsList.value.whereType<Map>().toList();
+      final existingLikeIds = currentLikes.map(_cloudSongId).toSet();
+      var likesImported = 0;
+      for (final song in (data['likedSongs'] as List? ?? const []).whereType<Map>()) {
+        final id = _cloudSongId(song);
+        if (id.isEmpty || !existingLikeIds.add(id)) continue;
+        currentLikes.add(Map.from(song));
+        likesImported++;
+      }
+      if (likesImported > 0) {
+        userLikedSongsList.value = currentLikes;
+        await addOrUpdateData<List>('user', 'likedSongs', currentLikes);
+      }
       if (mounted)
         _toast(
-          imported == 0
+          playlistsImported == 0 && likesImported == 0
               ? 'Your library is already up to date.'
-              : 'Imported $imported playlist${imported == 1 ? '' : 's'} from Dropbox.',
+              : 'Imported $playlistsImported playlist${playlistsImported == 1 ? '' : 's'} and $likesImported liked song${likesImported == 1 ? '' : 's'} from Dropbox.',
         );
     } catch (error) {
       if (mounted) _toast(error.toString());
@@ -3204,7 +3244,7 @@ class _NativeTransferPageState extends State<_NativeTransferPage> {
             ],
             const SizedBox(height: 8),
             const Text(
-              'Dropbox sign-in opens in your browser for safety, then returns directly to this page. Its connection is saved to your Zonic account, so no recovery key is needed.',
+              'Sync to Dropbox saves your playlists and Liked Songs. On another device, sign in to the same Dropbox and choose Get from Dropbox. Its connection is saved to your Zonic account, so no recovery key is needed.',
               style: TextStyle(color: zonicMuted, fontSize: 12),
             ),
           ],
