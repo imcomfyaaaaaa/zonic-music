@@ -25,6 +25,7 @@ import 'dart:async';
 import 'dart:collection';
 import 'dart:io';
 
+import 'package:flutter/material.dart' as flutter;
 import 'package:hive/hive.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:musify/extensions/l10n.dart';
@@ -40,6 +41,17 @@ class OfflinePlaylistService {
   OfflinePlaylistService._internal();
   static final OfflinePlaylistService _instance =
       OfflinePlaylistService._internal();
+
+  void _notify(BuildContext context, String message) {
+    final nativeMessenger = flutter.ScaffoldMessenger.maybeOf(context);
+    if (nativeMessenger != null) {
+      nativeMessenger.showSnackBar(
+        flutter.SnackBar(content: flutter.Text(message)),
+      );
+    } else {
+      showToast(context, message);
+    }
+  }
 
   // Playlist download state notifiers
   final Map<String, ValueNotifier<DownloadProgress>> downloadProgressNotifiers =
@@ -110,20 +122,20 @@ class OfflinePlaylistService {
     final playlistId = playlist['ytid'] as String? ?? playlist['title'];
 
     if (playlistId == null || playlistId.isEmpty) {
-      showToast(context, context.l10n!.error);
+      _notify(context, context.l10n!.error);
       return;
     }
 
     // Check if already downloading
     if (isPlaylistDownloading(playlistId)) {
-      showToast(context, context.l10n!.alreadyDownloading);
+      _notify(context, context.l10n!.alreadyDownloading);
       return;
     }
 
     // Initialize download state
     final songsList = playlist['list'] as List<dynamic>? ?? [];
     if (songsList.isEmpty) {
-      showToast(context, context.l10n!.playlistEmpty);
+      _notify(context, context.l10n!.playlistEmpty);
       return;
     }
 
@@ -168,7 +180,7 @@ class OfflinePlaylistService {
       activeDownloads.remove(playlistId);
       cleanupProgressNotifier(playlistId);
       if (context.mounted) {
-        showToast(context, '${context.l10n!.error}: $e');
+        _notify(context, '${context.l10n!.error}: $e');
       }
     } finally {
       // Ensure cleanup happens even if _handleDownloadCompletion throws
@@ -264,7 +276,7 @@ class OfflinePlaylistService {
         );
 
         if (context.mounted) {
-          showToast(
+          _notify(
             context,
             '${context.l10n!.playlistDownloaded}: ${progressNotifier.value.completed}/${songsList.length}',
           );
@@ -272,7 +284,7 @@ class OfflinePlaylistService {
       } else if (!progressNotifier.value.isCancelled) {
         // Cancelled toast is shown by cancelDownload, only show failure toast here.
         if (context.mounted) {
-          showToast(
+          _notify(
             context,
             '${context.l10n!.downloadFailed}: ${progressNotifier.value.failed}/${songsList.length}',
           );
@@ -299,7 +311,7 @@ class OfflinePlaylistService {
       progressNotifier.notifyListeners();
 
       // Immediate visual feedback
-      showToast(context, context.l10n!.cancellingDownload);
+      _notify(context, context.l10n!.cancellingDownload);
 
       const maxWaitTime = Duration(seconds: 30);
       final startTime = DateTime.now();
@@ -316,7 +328,7 @@ class OfflinePlaylistService {
         }
       }
 
-      showToast(context, context.l10n!.downloadCancelled);
+      _notify(context, context.l10n!.downloadCancelled);
     } catch (e, stackTrace) {
       logger.log('Error cancelling download', error: e, stackTrace: stackTrace);
       // Force remove from active downloads and cleanup on error

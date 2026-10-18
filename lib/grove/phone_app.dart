@@ -26,7 +26,6 @@ import 'package:musify/services/playlist_download_service.dart';
 import 'package:musify/services/playlists_manager.dart';
 import 'package:musify/services/settings_manager.dart';
 import 'package:musify/services/update_manager.dart';
-import 'package:musify/utilities/offline_playlist_dialogs.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -1013,6 +1012,34 @@ class _PlaylistDownloadButton extends StatelessWidget {
   final List<Map> songs;
   final bool compact;
 
+  Future<void> _removeDownload(BuildContext context, String playlistId) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Remove download?'),
+        content: const Text(
+          'Remove this playlist’s downloaded songs from this device?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+    await offlinePlaylistService.removeOfflinePlaylist(playlistId);
+    if (context.mounted) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Download removed.')));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final playlistId =
@@ -1022,9 +1049,9 @@ class _PlaylistDownloadButton extends StatelessWidget {
     return ValueListenableBuilder<List<dynamic>>(
       valueListenable: offlinePlaylistService.offlinePlaylists,
       builder: (context, _, __) {
-        final isDownloaded =
-            offlinePlaylistService.isPlaylistDownloaded(playlistId) ||
-            (songs.isNotEmpty && isPlaylistFullyOffline(songs));
+        final isDownloaded = offlinePlaylistService.isPlaylistDownloaded(
+          playlistId,
+        );
 
         return ValueListenableBuilder<DownloadProgress>(
           valueListenable: offlinePlaylistService.getProgressNotifier(
@@ -1070,8 +1097,7 @@ class _PlaylistDownloadButton extends StatelessWidget {
                 return Tooltip(
                   message: 'Downloaded · Tap to remove',
                   child: IconButton(
-                    onPressed: () =>
-                        showRemoveOfflinePlaylistDialog(context, playlistId),
+                    onPressed: () => _removeDownload(context, playlistId),
                     icon: const Icon(
                       Icons.download_done_rounded,
                       color: Color(0xff9ff0bd),
@@ -1080,8 +1106,7 @@ class _PlaylistDownloadButton extends StatelessWidget {
                 );
               }
               return OutlinedButton.icon(
-                onPressed: () =>
-                    showRemoveOfflinePlaylistDialog(context, playlistId),
+                onPressed: () => _removeDownload(context, playlistId),
                 icon: const Icon(
                   Icons.download_done_rounded,
                   color: Color(0xff9ff0bd),
@@ -1099,10 +1124,10 @@ class _PlaylistDownloadButton extends StatelessWidget {
                 child: IconButton(
                   onPressed: songs.isEmpty
                       ? null
-                      : () => offlinePlaylistService.downloadPlaylist(
-                          context,
-                          playlist,
-                        ),
+                      : () => offlinePlaylistService.downloadPlaylist(context, {
+                          ...playlist,
+                          'list': songs,
+                        }),
                   icon: const Icon(Icons.download_for_offline_outlined),
                 ),
               );
@@ -1111,10 +1136,10 @@ class _PlaylistDownloadButton extends StatelessWidget {
             return FilledButton.icon(
               onPressed: songs.isEmpty
                   ? null
-                  : () => offlinePlaylistService.downloadPlaylist(
-                      context,
-                      playlist,
-                    ),
+                  : () => offlinePlaylistService.downloadPlaylist(context, {
+                      ...playlist,
+                      'list': songs,
+                    }),
               icon: const Icon(Icons.download_for_offline_outlined),
               label: const Text('Download playlist'),
             );
@@ -1342,9 +1367,9 @@ class _NativePlaylistPageState extends State<_NativePlaylistPage> {
           ],
         ),
         bottomNavigationBar: ZonicMiniPlayerBar(
-          onExpand: () => Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const _FullPlayer()),
-          ),
+          onExpand: () =>
+              Navigator.of(context)
+                  .push(MaterialPageRoute(builder: (_) => const _FullPlayer())),
         ),
         body: Column(
           children: [
@@ -1600,9 +1625,9 @@ class _NativeCollectionPageState extends State<_NativeCollectionPage> {
       title: Text(title),
     ),
     bottomNavigationBar: ZonicMiniPlayerBar(
-      onExpand: () => Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => const _FullPlayer()),
-      ),
+      onExpand: () =>
+          Navigator.of(context)
+              .push(MaterialPageRoute(builder: (_) => const _FullPlayer())),
     ),
     body: ValueListenableBuilder<List>(
       valueListenable: source,
@@ -3129,7 +3154,9 @@ class _NativeTransferPageState extends State<_NativeTransferPage> {
         );
       }
       if (mounted) {
-        _toast('Playlists and ${userLikedSongsList.value.length} liked songs synced.');
+        _toast(
+          'Playlists and ${userLikedSongsList.value.length} liked songs synced.',
+        );
       }
     } catch (error) {
       if (mounted) _toast(error.toString());
@@ -3177,7 +3204,8 @@ class _NativeTransferPageState extends State<_NativeTransferPage> {
       final currentLikes = userLikedSongsList.value.whereType<Map>().toList();
       final existingLikeIds = currentLikes.map(_cloudSongId).toSet();
       var likesImported = 0;
-      for (final song in (data['likedSongs'] as List? ?? const []).whereType<Map>()) {
+      for (final song
+          in (data['likedSongs'] as List? ?? const []).whereType<Map>()) {
         final id = _cloudSongId(song);
         if (id.isEmpty || !existingLikeIds.add(id)) continue;
         currentLikes.add(Map.from(song));
