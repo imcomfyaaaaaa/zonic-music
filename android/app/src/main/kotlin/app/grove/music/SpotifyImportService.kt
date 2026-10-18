@@ -3,6 +3,7 @@ package app.grove.music
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
@@ -16,7 +17,7 @@ import androidx.core.content.ContextCompat
 class SpotifyImportService : Service() {
   private var wakeLock: PowerManager.WakeLock? = null
   companion object {
-    private const val channelId = "zonic_spotify_import"
+    private const val channelId = "zonic_spotify_import_progress_v2"
     private const val notificationId = 8421
     const val actionStart = "app.grove.music.IMPORT_START"
     const val actionUpdate = "app.grove.music.IMPORT_UPDATE"
@@ -82,14 +83,15 @@ class SpotifyImportService : Service() {
       manager.createNotificationChannel(NotificationChannel(
         channelId,
         "Spotify playlist imports",
-        NotificationManager.IMPORTANCE_LOW,
+        NotificationManager.IMPORTANCE_DEFAULT,
       ))
     }
     val progressText = if (total > 0) "$processed of $total songs" else "Preparing playlist"
     return NotificationCompat.Builder(this, channelId)
-      .setSmallIcon(applicationInfo.icon)
+      .setSmallIcon(android.R.drawable.stat_sys_download)
       .setContentTitle("Importing Spotify playlist")
       .setContentText(progressText)
+      .setContentIntent(PendingIntent.getActivity(this, 0, packageManager.getLaunchIntentForPackage(packageName), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
       .setOnlyAlertOnce(true)
       .setOngoing(true)
       .setProgress(total, processed.coerceAtMost(total), total <= 0)

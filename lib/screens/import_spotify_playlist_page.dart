@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
@@ -9,9 +10,11 @@ import 'package:musify/extensions/l10n.dart';
 import 'package:musify/main.dart' show logger;
 import 'package:musify/services/artist_service.dart' show ytMusicClient;
 import 'package:musify/services/common_services.dart';
+import 'package:musify/services/data_manager.dart';
 import 'package:musify/services/playlists_manager.dart';
 import 'package:musify/utilities/flutter_toast.dart';
 import 'package:musify/utilities/formatter.dart';
+import 'package:musify/utilities/playlist_utils.dart';
 import 'package:musify/utilities/url_launcher.dart';
 import 'package:musify/widgets/mini_player.dart';
 import 'package:youtube_explode_dart/youtube_explode_dart.dart';
@@ -32,11 +35,10 @@ class _ImportSpotifyPlaylistPageState extends State<ImportSpotifyPlaylistPage> {
   // can't spawn a second import running concurrently with the first.
   static bool _importRunning = false;
 
-  // Start quickly for normal imports, then slow down only if YouTube asks us
-  // to. This avoids making every large import needlessly slow.
-  static const _fastBatchSize = 8;
-  static const _slowBatchSize = 3;
-  static const _batchPause = Duration(milliseconds: 120);
+  // Keep several searches in flight without waiting for a slow request to
+  // finish before starting the next one.
+  static const _parallelSearches = 8;
+  static const _searchTimeout = Duration(seconds: 12);
   static const _rateLimitPause = Duration(seconds: 4);
   static const _platform = MethodChannel('grove/platform');
 
@@ -46,23 +48,35 @@ class _ImportSpotifyPlaylistPageState extends State<ImportSpotifyPlaylistPage> {
   String? _fileName;
   int _processedCount = 0;
   int _totalCount = 0;
+  DateTime _lastNotificationUpdate = DateTime.fromMillisecondsSinceEpoch(0);
 
-  Future<void> _backgroundImport(String action) async {
+  Future<bool> _backgroundImport(String action) async {
     try {
       await _platform.invokeMethod<void>('spotifyImportForeground', {
         'action': action,
         'processed': _processedCount,
         'total': _totalCount,
       });
-    } catch (_) {
-      // Importing itself still works on platforms without Android services.
+      return true;
+    } catch (error, stackTrace) {
+      logger.log(
+        'Could not update Spotify import notification',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      return !Platform.isAndroid;
     }
   }
 
   void _updateProgress(int amount) {
     _processedCount += amount;
     if (mounted) setState(() {});
-    unawaited(_backgroundImport('update'));
+    final now = DateTime.now();
+    if (_processedCount >= _totalCount ||
+        now.difference(_lastNotificationUpdate) >= const Duration(seconds: 1)) {
+      _lastNotificationUpdate = now;
+      unawaited(_backgroundImport('update'));
+    }
   }
 
   @override
@@ -189,101 +203,96 @@ class _ImportSpotifyPlaylistPageState extends State<ImportSpotifyPlaylistPage> {
 
     // Key results by their CSV position so retry results remain ordered.
     final foundByIndex = <int, Map>{};
-    List<_ImportRow> missingRows;
+    List<_ImportRow> missingRows = [];
     try {
-      final firstPass = await _searchBatch(
-        rows,
-        onProgress: _updateProgress,
-      );
+      final firstPass = await _searchBatch(rows, onProgress: _updateProgress);
       foundByIndex.addAll(firstPass.found);
       missingRows = firstPass.missing;
 
-      // Retry misses once. A temporary YouTube rate limit should not abandon
-      // the remaining hundreds of rows in a large playlist.
-      if (missingRows.isNotEmpty) {
-        // Include the retry work in the progress total.
-        if (mounted) setState(() => _totalCount += missingRows.length);
-        final retryPass = await _searchBatch(
-          missingRows,
-          onProgress: _updateProgress,
+      final foundSongs = [
+        for (final row in rows)
+          if (foundByIndex[row.index] case final song?)
+            Map<String, dynamic>.from(song)
+              ..['spotifyTitle'] = row.title
+              ..['spotifyArtist'] = row.artist,
+      ];
+
+      final normalizedName = playlistName.toLowerCase().replaceAll(
+        RegExp(r'[^a-z0-9]'),
+        '',
+      );
+      final isLikedSongsImport = const {
+        'liked',
+        'likedsongs',
+        'spotifyliked',
+        'spotifylikedsongs',
+      }.contains(normalizedName);
+      String? likedResult;
+      if (isLikedSongsImport) {
+        final merged = await mergeSpotifyLikedSongs(foundSongs);
+        likedResult =
+            'Updated Liked Songs: ${merged.added} added, ${merged.updated} refreshed.';
+      } else {
+        // Do not leave an empty playlist behind if YouTube could not resolve a
+        // single CSV entry (for example while offline or rate-limited).
+        if (foundSongs.isEmpty) {
+          if (mounted) {
+            showToast(
+              context,
+              'No songs could be matched. Check your connection and try again.',
+            );
+          }
+          return;
+        }
+        final playlist = <String, dynamic>{
+          'ytid': PlaylistUtils.generateCustomPlaylistId(),
+          'title': playlistName,
+          'source': 'user-created',
+          'list': foundSongs,
+          'createdAt': DateTime.now().millisecondsSinceEpoch,
+        };
+        userCustomPlaylists.value = [...userCustomPlaylists.value, playlist];
+        await addOrUpdateData<List>(
+          'user',
+          'customPlaylists',
+          userCustomPlaylists.value,
         );
-        foundByIndex.addAll(retryPass.found);
-        missingRows = retryPass.missing;
+      }
+      if (!mounted) return;
+      setState(() => _isImporting = false);
+
+      final resultText =
+          likedResult ??
+          context.l10n!.spotifyPlaylistImportResult(
+            foundSongs.length,
+            rows.length,
+          );
+      if (missingRows.isNotEmpty) {
+        final missingText = missingRows
+            .map((row) => '${row.title} - ${row.artist}')
+            .join('\n');
+        await Clipboard.setData(ClipboardData(text: missingText));
+        if (mounted) {
+          showToastWithButton(
+            context,
+            '$resultText\n${context.l10n!.spotifyPlaylistMissingSongs}',
+            context.l10n!.copy,
+            () => Clipboard.setData(ClipboardData(text: missingText)),
+            duration: const Duration(seconds: 8),
+            icon: FluentIcons.warning_24_regular,
+          );
+        }
+      } else {
+        showToast(context, resultText);
       }
     } finally {
       _importRunning = false;
-      unawaited(_backgroundImport('stop'));
-    }
-
-    final foundSongs = [
-      for (final row in rows)
-        if (foundByIndex[row.index] case final song?)
-          Map<String, dynamic>.from(song)
-            ..['spotifyTitle'] = row.title
-            ..['spotifyArtist'] = row.artist,
-    ];
-
-    if (!mounted) return;
-    final normalizedName = playlistName.toLowerCase().replaceAll(
-      RegExp(r'[^a-z0-9]'),
-      '',
-    );
-    final isLikedSongsImport = const {
-      'liked',
-      'likedsongs',
-      'spotifyliked',
-      'spotifylikedsongs',
-    }.contains(normalizedName);
-    String? likedResult;
-    if (isLikedSongsImport) {
-      final merged = await mergeSpotifyLikedSongs(foundSongs);
-      likedResult =
-          'Updated Liked Songs: ${merged.added} added, ${merged.updated} refreshed.';
-    } else {
-      // Do not leave an empty playlist behind if YouTube could not resolve a
-      // single CSV entry (for example while offline or rate-limited).
-      if (foundSongs.isEmpty) {
-        setState(() => _isImporting = false);
-        showToast(
-          context,
-          'No songs could be matched. Check your connection and try again.',
-        );
-        return;
-      }
-      final (_, playlistId) = createCustomPlaylist(playlistName, null, context);
-      addSongsInCustomPlaylist(context, playlistId, foundSongs);
-    }
-    setState(() => _isImporting = false);
-
-    final resultText =
-        likedResult ??
-        context.l10n!.spotifyPlaylistImportResult(
-          foundSongs.length,
-          rows.length,
-        );
-    if (missingRows.isNotEmpty) {
-      final missingText = missingRows
-          .map((row) => '${row.title} - ${row.artist}')
-          .join('\n');
-      await Clipboard.setData(ClipboardData(text: missingText));
-      if (mounted) {
-        showToastWithButton(
-          context,
-          '$resultText\n${context.l10n!.spotifyPlaylistMissingSongs}',
-          context.l10n!.copy,
-          () => Clipboard.setData(ClipboardData(text: missingText)),
-          duration: const Duration(seconds: 8),
-          icon: FluentIcons.warning_24_regular,
-        );
-      }
-    } else {
-      showToast(context, resultText);
+      if (mounted) setState(() => _isImporting = false);
+      await _backgroundImport('stop');
     }
   }
 
-  /// Resolves [rows] in batches. When YouTube briefly slows requests, waits
-  /// and continues rather than dropping the rest of a large CSV.
-  /// Results are keyed by the rows' original positions for retry merging.
+  /// Keep workers busy independently so one slow lookup cannot stall a batch.
   Future<({Map<int, Map> found, List<_ImportRow> missing, bool rateLimited})>
   _searchBatch(
     List<_ImportRow> rows, {
@@ -291,46 +300,26 @@ class _ImportSpotifyPlaylistPageState extends State<ImportSpotifyPlaylistPage> {
   }) async {
     final found = <int, Map>{};
     final missing = <_ImportRow>[];
-    var i = 0;
-    var batchSize = _fastBatchSize;
-    var healthyBatches = 0;
-    while (i < rows.length) {
-      final batch = rows.skip(i).take(batchSize).toList();
-      final batchResults = await Future.wait(
-        batch.map((row) async {
-          final (match, wasRateLimited) = await _findSongWithRetry(
-            '${row.title} ${row.artist}',
-            expectedArtist: row.artist,
-            expectedTitle: row.title,
-          );
-          return (row, match, wasRateLimited);
-        }),
-      );
-      var batchRateLimited = false;
-      for (final (row, match, wasRateLimited) in batchResults) {
-        if (wasRateLimited) batchRateLimited = true;
+    var nextIndex = 0;
+    Future<void> worker() async {
+      while (nextIndex < rows.length) {
+        final row = rows[nextIndex++];
+        final (match, wasRateLimited) = await _findSongWithRetry(
+          '${row.title} ${row.artist}',
+          expectedArtist: row.artist,
+          expectedTitle: row.title,
+        );
         if (match == null) {
           missing.add(row);
         } else {
           found[row.index] = match;
         }
-      }
-      onProgress(batchResults.length);
-      i += batch.length;
-      if (batchRateLimited) {
-        // Recover at a low request rate, then gradually return to fast mode.
-        batchSize = _slowBatchSize;
-        healthyBatches = 0;
-        await Future.delayed(_rateLimitPause);
-      } else {
-        healthyBatches++;
-        if (healthyBatches >= 3 && batchSize < _fastBatchSize) {
-          batchSize++;
-          healthyBatches = 0;
-        }
-        await Future.delayed(_batchPause);
+        onProgress(1);
+        if (wasRateLimited) await Future.delayed(_rateLimitPause);
       }
     }
+
+    await Future.wait(List.generate(_parallelSearches, (_) => worker()));
     return (found: found, missing: missing, rateLimited: false);
   }
 
@@ -342,14 +331,16 @@ class _ImportSpotifyPlaylistPageState extends State<ImportSpotifyPlaylistPage> {
     String? expectedArtist,
     String? expectedTitle,
   }) async {
-    const maxAttempts = 3;
+    const maxAttempts = 2;
     for (var attempt = 0; attempt < maxAttempts; attempt++) {
       try {
-        final video = await ytMusicClient.music.searchSong(
-          query,
-          expectedArtist: expectedArtist,
-          expectedTitle: expectedTitle,
-        );
+        final video = await ytMusicClient.music
+            .searchSong(
+              query,
+              expectedArtist: expectedArtist,
+              expectedTitle: expectedTitle,
+            )
+            .timeout(_searchTimeout);
         if (video == null) return (null, false);
         return (Map<String, dynamic>.from(returnSongLayout(0, video)), false);
       } on RequestLimitExceededException {

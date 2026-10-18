@@ -16,6 +16,16 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
 class GroveActivity : AudioServiceActivity() {
+  private var pendingNotificationPermission: MethodChannel.Result? = null
+
+  override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+    super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+    if (requestCode == 604) {
+      pendingNotificationPermission?.success(grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED)
+      pendingNotificationPermission = null
+    }
+  }
+
   override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
     super.configureFlutterEngine(flutterEngine)
     MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "grove/platform").setMethodCallHandler { call, result ->
@@ -32,9 +42,12 @@ class GroveActivity : AudioServiceActivity() {
         result.success(mapOf("tv" to isTv, "auto" to isAuto, "accent" to String.format("#%06X", accent and 0xffffff)))
       } else if (call.method == "requestNotifications") {
         if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+          pendingNotificationPermission?.error("superseded", "Another notification permission request started", null)
+          pendingNotificationPermission = result
           ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.POST_NOTIFICATIONS), 604)
+        } else {
+          result.success(true)
         }
-        result.success(true)
       } else if (call.method == "spotifyImportForeground") {
         val action = call.argument<String>("action")
         val processed = call.argument<Int>("processed") ?: 0
