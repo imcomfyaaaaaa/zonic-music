@@ -198,10 +198,34 @@ class _EqualizerPageState extends State<EqualizerPage> {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
+    return Theme(
+      data: ThemeData.dark().copyWith(
+        scaffoldBackgroundColor: zonicBackground,
+        colorScheme: const ColorScheme.dark(
+          primary: zonicAccent,
+          onPrimary: Color(0xff100e15),
+          surface: zonicSurface,
+          onSurface: Colors.white,
+        ),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: zonicBackground,
+          foregroundColor: Colors.white,
+        ),
+      ),
+      child: Builder(builder: _buildPage),
+    );
+  }
 
+  Widget _buildPage(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Scaffold(
+      backgroundColor: zonicBackground,
       appBar: AppBar(
+        leading: IconButton(
+          tooltip: 'Back',
+          icon: const Icon(Icons.arrow_back_rounded),
+          onPressed: () => Navigator.maybePop(context),
+        ),
         title: Text(context.l10n!.equalizer),
         actions: [
           if (_params != null)
@@ -270,6 +294,7 @@ class _EqualizerPageState extends State<EqualizerPage> {
                         style: TextStyle(
                           fontSize: 19,
                           fontWeight: FontWeight.w700,
+                          color: Colors.white,
                         ),
                       ),
                       const SizedBox(height: 9),

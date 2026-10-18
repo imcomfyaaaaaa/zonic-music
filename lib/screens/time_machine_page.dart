@@ -74,29 +74,52 @@ class _TimeMachinePageState extends State<TimeMachinePage> {
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<bool>(
-      valueListenable: offlineMode,
-      builder: (context, isOffline, _) {
-        if (isOffline) return const UserSongsPage(page: 'offline');
+    return Theme(
+      data: ThemeData.dark().copyWith(
+        scaffoldBackgroundColor: zonicBackground,
+        colorScheme: const ColorScheme.dark(
+          primary: zonicAccent,
+          onPrimary: Color(0xff100e15),
+          secondary: Colors.white,
+          surface: zonicSurface,
+          onSurface: Colors.white,
+        ),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: zonicBackground,
+          foregroundColor: Colors.white,
+        ),
+      ),
+      child: ValueListenableBuilder<bool>(
+        valueListenable: offlineMode,
+        builder: (context, isOffline, _) {
+          if (isOffline) return const UserSongsPage(page: 'offline');
 
-        return ValueListenableBuilder<bool>(
-          valueListenable: wrappedEnabled,
-          builder: (context, isEnabled, _) {
-            if (!isEnabled || !listeningStatsService.hasStats) {
-              return _buildEmptyState(context);
-            }
+          return ValueListenableBuilder<bool>(
+            valueListenable: wrappedEnabled,
+            builder: (context, isEnabled, _) {
+              if (!isEnabled || !listeningStatsService.hasStats) {
+                return _buildEmptyState(context);
+              }
 
-            return _buildTimeMachine(context);
-          },
-        );
-      },
+              return _buildTimeMachine(context);
+            },
+          );
+        },
+      ),
     );
   }
 
   Widget _buildEmptyState(BuildContext context) {
     final statsOff = !wrappedEnabled.value;
     return Scaffold(
-      appBar: AppBar(title: Text(context.l10n!.timeMachine)),
+      appBar: AppBar(
+        leading: IconButton(
+          tooltip: 'Back',
+          icon: const Icon(Icons.arrow_back_rounded),
+          onPressed: () => Navigator.maybePop(context),
+        ),
+        title: Text(context.l10n!.timeMachine),
+      ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(18, 20, 18, 40),
         children: [
@@ -195,7 +218,14 @@ class _TimeMachinePageState extends State<TimeMachinePage> {
     );
 
     return Scaffold(
-      appBar: AppBar(title: Text(context.l10n!.timeMachine)),
+      appBar: AppBar(
+        leading: IconButton(
+          tooltip: 'Back',
+          icon: const Icon(Icons.arrow_back_rounded),
+          onPressed: () => Navigator.maybePop(context),
+        ),
+        title: Text(context.l10n!.timeMachine),
+      ),
       body: ListView.builder(
         padding: const EdgeInsets.fromLTRB(10, 0, 10, 24),
         scrollCacheExtent: const ScrollCacheExtent.pixels(500),

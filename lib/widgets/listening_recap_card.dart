@@ -21,7 +21,7 @@
 
 import 'package:material_ui/material_ui.dart';
 import 'package:musify/extensions/l10n.dart';
-import 'package:musify/widgets/song_bar.dart';
+import 'package:musify/grove/native_widgets.dart';
 
 const _musifyIconAsset = 'assets/icons/zonic_icon.png';
 
@@ -99,18 +99,71 @@ class ListeningRecapCard extends StatelessWidget {
               ],
             ),
             if (songs.isNotEmpty) ...[
+              const SizedBox(height: 16),
               for (var i = 0; i < songs.length; i++)
-                SongBar(
+                InkWell(
                   key: ValueKey(songs[i]['ytid'] ?? i),
-                  songs[i],
-                  false,
-                  showPlayTime: true,
-                  rank: i + 1,
-                  onPlay: () => onSongTap(i),
-                  barPadding: const EdgeInsetsDirectional.symmetric(
-                    vertical: 10,
+                  onTap: () => onSongTap(i),
+                  borderRadius: BorderRadius.circular(12),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 7),
+                    child: Row(
+                      children: [
+                        SizedBox(
+                          width: 22,
+                          child: Text(
+                            '${i + 1}',
+                            style: TextStyle(
+                              color: colorScheme.primary,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                        ZonicArtwork(
+                          url: zonicArtworkUrl(songs[i]),
+                          size: 46,
+                          radius: 9,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                songs[i]['title']?.toString() ?? 'Unknown song',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: colorScheme.onSurface,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              Text(
+                                songs[i]['artist']?.toString() ?? '',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: colorScheme.onSurfaceVariant,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Icon(
+                          Icons.play_arrow_rounded,
+                          color: colorScheme.primary,
+                        ),
+                      ],
+                    ),
                   ),
                 ),
+            ] else ...[
+              const SizedBox(height: 18),
+              Text(
+                'Your most played songs will appear here.',
+                style: TextStyle(color: colorScheme.onSurfaceVariant),
+              ),
             ],
           ],
         ),
