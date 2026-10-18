@@ -58,6 +58,12 @@ class OfflinePlaylistService {
       {};
   final List<String> activeDownloads = [];
 
+  /// Songs currently being fetched, keyed by YouTube id and title.
+  /// Shared by playlist and single-song downloads so every library view can
+  /// render the same in-progress state.
+  final ValueNotifier<Map<String, String>> activeSongDownloads =
+      ValueNotifier<Map<String, String>>({});
+
   // List of playlists that are fully available offline
   final offlinePlaylists = ValueNotifier<List<dynamic>>(
     Hive.box('userNoBackup').get('offlinePlaylists', defaultValue: []),
@@ -580,7 +586,19 @@ class OfflinePlaylistService {
           progressNotifier.value.completed++;
           progressNotifier.notifyListeners();
         } else {
-          final success = await makeSongOffline(song);
+          final songId = song['ytid'].toString();
+          final active = Map<String, String>.from(activeSongDownloads.value)
+            ..[songId] = song['title']?.toString() ?? 'Song';
+          activeSongDownloads.value = active;
+          bool success = false;
+          try {
+            success = await makeSongOffline(song);
+          } finally {
+            final remaining = Map<String, String>.from(
+              activeSongDownloads.value,
+            )..remove(songId);
+            activeSongDownloads.value = remaining;
+          }
           if (success) {
             progressNotifier.value.completed++;
           } else {

@@ -2107,27 +2107,71 @@ class _SongTile extends StatelessWidget {
   final Map song;
   final VoidCallback onTap;
   @override
-  Widget build(BuildContext context) => ListTile(
-    contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
-    onTap: onTap,
-    leading: ZonicArtwork(url: zonicArtworkUrl(song), size: 48, radius: 9),
-    title: Text(
-      song['title']?.toString() ?? 'Unknown song',
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
-    ),
-    subtitle: Text(
-      song['artist']?.toString() ?? 'Unknown artist',
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
-      style: const TextStyle(color: zonicMuted),
-    ),
-    trailing: IconButton(
-      tooltip: 'Song options',
-      onPressed: () => _showSongActions(context, song),
-      icon: const Icon(Icons.more_vert_rounded),
-    ),
-  );
+  Widget build(BuildContext context) {
+    final songId = song['ytid']?.toString();
+    return ValueListenableBuilder<Map<String, String>>(
+      valueListenable: offlinePlaylistService.activeSongDownloads,
+      builder: (context, downloading, _) {
+        final isDownloading = songId != null && downloading.containsKey(songId);
+        return ValueListenableBuilder<List<dynamic>>(
+          valueListenable: userOfflineSongs,
+          builder: (context, _, __) {
+            final isDownloaded = songId != null && isSongAlreadyOffline(songId);
+            return ListTile(
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 4,
+                vertical: 3,
+              ),
+              onTap: onTap,
+              leading: ZonicArtwork(
+                url: zonicArtworkUrl(song),
+                size: 48,
+                radius: 9,
+              ),
+              title: Text(
+                song['title']?.toString() ?? 'Unknown song',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              subtitle: Text(
+                song['artist']?.toString() ?? 'Unknown artist',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(color: zonicMuted),
+              ),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (isDownloading)
+                    const SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.2,
+                        color: Color(0xff9f8cff),
+                      ),
+                    )
+                  else if (isDownloaded)
+                    const Tooltip(
+                      message: 'Downloaded',
+                      child: Icon(
+                        Icons.download_done_rounded,
+                        color: Color(0xff9ff0bd),
+                      ),
+                    ),
+                  IconButton(
+                    tooltip: 'Song options',
+                    onPressed: () => _showSongActions(context, song),
+                    icon: const Icon(Icons.more_vert_rounded),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
 }
 
 class _TimedLyric {
@@ -2643,7 +2687,24 @@ class _LibraryRow extends StatelessWidget {
 Future<void> _download(BuildContext context, Map song) async {
   final messenger = ScaffoldMessenger.of(context);
   messenger.showSnackBar(const SnackBar(content: Text('Downloading song…')));
-  final ok = await makeSongOffline(song);
+  final songId = song['ytid']?.toString();
+  if (songId != null && songId.isNotEmpty) {
+    final active = Map<String, String>.from(
+      offlinePlaylistService.activeSongDownloads.value,
+    )..[songId] = song['title']?.toString() ?? 'Song';
+    offlinePlaylistService.activeSongDownloads.value = active;
+  }
+  bool ok = false;
+  try {
+    ok = await makeSongOffline(song);
+  } finally {
+    if (songId != null && songId.isNotEmpty) {
+      final active = Map<String, String>.from(
+        offlinePlaylistService.activeSongDownloads.value,
+      )..remove(songId);
+      offlinePlaylistService.activeSongDownloads.value = active;
+    }
+  }
   messenger.hideCurrentSnackBar();
   messenger.showSnackBar(
     SnackBar(content: Text(ok ? 'Song downloaded.' : 'Download failed.')),
