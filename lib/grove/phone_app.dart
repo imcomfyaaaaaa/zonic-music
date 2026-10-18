@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:math';
 
 import 'package:audio_service/audio_service.dart';
@@ -19,6 +20,7 @@ import 'package:musify/screens/time_machine_page.dart';
 import 'package:musify/services/artist_service.dart';
 import 'package:musify/services/common_services.dart';
 import 'package:musify/services/data_manager.dart';
+import 'package:musify/services/io_service.dart';
 import 'package:musify/services/playlist_download_service.dart';
 import 'package:musify/services/playlists_manager.dart';
 import 'package:musify/services/settings_manager.dart';
@@ -1476,6 +1478,12 @@ class _NativePlaylistPageState extends State<_NativePlaylistPage> {
 
 enum _CollectionKind { liked, recent, offline }
 
+class _DownloadStorageUsage {
+  const _DownloadStorageUsage({required this.bytes});
+
+  final int bytes;
+}
+
 class _NativeCollectionPage extends StatefulWidget {
   const _NativeCollectionPage({required this.kind});
 
@@ -1488,6 +1496,13 @@ class _NativeCollectionPage extends StatefulWidget {
 class _NativeCollectionPageState extends State<_NativeCollectionPage> {
   final search = TextEditingController();
   String query = '';
+  late final Future<_DownloadStorageUsage> _storageUsage;
+
+  @override
+  void initState() {
+    super.initState();
+    _storageUsage = _readDownloadStorageUsage();
+  }
 
   ValueNotifier<List> get source => switch (widget.kind) {
     _CollectionKind.liked => userLikedSongsList,
@@ -1511,6 +1526,30 @@ class _NativeCollectionPageState extends State<_NativeCollectionPage> {
   void dispose() {
     search.dispose();
     super.dispose();
+  }
+
+  Future<_DownloadStorageUsage> _readDownloadStorageUsage() async {
+    var bytes = 0;
+    for (final directoryName in [FilePaths.tracksDir, FilePaths.artworksDir]) {
+      final directory = Directory('${applicationDirPath}/$directoryName');
+      if (!await directory.exists()) continue;
+      await for (final entity in directory.list(recursive: true)) {
+        if (entity is File) {
+          try {
+            bytes += await entity.length();
+          } catch (_) {}
+        }
+      }
+    }
+    return _DownloadStorageUsage(bytes: bytes);
+  }
+
+  String _formatStorage(int bytes) {
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).ceil()} KB';
+    if (bytes < 1024 * 1024 * 1024) {
+      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    }
+    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB';
   }
 
   @override
@@ -1571,6 +1610,31 @@ class _NativeCollectionPageState extends State<_NativeCollectionPage> {
                               '${allSongs.length} songs',
                               style: const TextStyle(color: zonicMuted),
                             ),
+                            if (widget.kind == _CollectionKind.offline)
+                              FutureBuilder<_DownloadStorageUsage>(
+                                future: _storageUsage,
+                                builder: (_, snapshot) {
+                                  if (!snapshot.hasData) {
+                                    return const Padding(
+                                      padding: EdgeInsets.only(top: 4),
+                                      child: Text(
+                                        'Calculating storage…',
+                                        style: TextStyle(color: zonicMuted),
+                                      ),
+                                    );
+                                  }
+                                  return Padding(
+                                    padding: const EdgeInsets.only(top: 4),
+                                    child: Text(
+                                      '${_formatStorage(snapshot.data!.bytes)} used on this device',
+                                      style: const TextStyle(
+                                        color: zonicAccent,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
                           ],
                         ),
                       ),
