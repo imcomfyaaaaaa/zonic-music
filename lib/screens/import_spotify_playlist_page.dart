@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:convert';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
@@ -57,9 +57,19 @@ class _ImportSpotifyPlaylistPageState extends State<ImportSpotifyPlaylistPage> {
     if (result.isEmpty || !mounted) return;
 
     final file = result.single;
-    final path = file.path;
-    if (path == null) return;
-    _csvController.text = await File(path).readAsString();
+    // The Android Storage Access Framework gives us a content URI, not always
+    // a normal disk path. PlatformFile reads either kind safely.
+    final contents = utf8.decode(
+      await file.readAsBytes(),
+      allowMalformed: true,
+    );
+    if (contents.trim().isEmpty) {
+      if (mounted) {
+        showToast(context, 'Could not read that CSV file. Please try again.');
+      }
+      return;
+    }
+    _csvController.text = contents;
     if (!mounted) return;
     setState(() {
       _fileName = file.name;
@@ -203,6 +213,16 @@ class _ImportSpotifyPlaylistPageState extends State<ImportSpotifyPlaylistPage> {
       likedResult =
           'Updated Liked Songs: ${merged.added} added, ${merged.updated} refreshed.';
     } else {
+      // Do not leave an empty playlist behind if YouTube could not resolve a
+      // single CSV entry (for example while offline or rate-limited).
+      if (foundSongs.isEmpty) {
+        setState(() => _isImporting = false);
+        showToast(
+          context,
+          'No songs could be matched. Check your connection and try again.',
+        );
+        return;
+      }
       final (_, playlistId) = createCustomPlaylist(playlistName, null, context);
       addSongsInCustomPlaylist(context, playlistId, foundSongs);
     }
@@ -316,6 +336,20 @@ class _ImportSpotifyPlaylistPageState extends State<ImportSpotifyPlaylistPage> {
   }
 
   List<List<String>> _parseCsv(String input) {
+    final firstLine = input
+        .replaceFirst('\ufeff', '')
+        .split(RegExp(r'\r?\n'))
+        .firstWhere((line) => line.trim().isNotEmpty, orElse: () => '');
+    // Exportify and Chosic use commas, but Excel often saves CSV as
+    // semicolon-separated in regional settings. Tab-delimited exports are
+    // accepted too.
+    final commaCount = ','.allMatches(firstLine).length;
+    final semicolonCount = ';'.allMatches(firstLine).length;
+    final delimiter = semicolonCount > commaCount
+        ? ';'
+        : firstLine.contains('\t') && commaCount == 0
+        ? '\t'
+        : ',';
     final rows = <List<String>>[];
     var row = <String>[];
     var field = StringBuffer();
@@ -330,7 +364,7 @@ class _ImportSpotifyPlaylistPageState extends State<ImportSpotifyPlaylistPage> {
         } else {
           quoted = !quoted;
         }
-      } else if (character == ',' && !quoted) {
+      } else if (character == delimiter && !quoted) {
         row.add(field.toString());
         field = StringBuffer();
       } else if ((character == '\n' || character == '\r') && !quoted) {
