@@ -32,11 +32,12 @@ class _ImportSpotifyPlaylistPageState extends State<ImportSpotifyPlaylistPage> {
   // can't spawn a second import running concurrently with the first.
   static bool _importRunning = false;
 
-  // Large libraries need a gentle request rate. Four concurrent searches are
-  // fast enough for big imports without making YouTube reject the whole job.
-  static const _batchSize = 4;
-  static const _batchPause = Duration(milliseconds: 350);
-  static const _rateLimitPause = Duration(seconds: 6);
+  // Start quickly for normal imports, then slow down only if YouTube asks us
+  // to. This avoids making every large import needlessly slow.
+  static const _fastBatchSize = 8;
+  static const _slowBatchSize = 3;
+  static const _batchPause = Duration(milliseconds: 120);
+  static const _rateLimitPause = Duration(seconds: 4);
   static const _platform = MethodChannel('grove/platform');
 
   final _csvController = TextEditingController();
@@ -178,7 +179,13 @@ class _ImportSpotifyPlaylistPageState extends State<ImportSpotifyPlaylistPage> {
     });
     // This foreground notification lets a large, user-started import keep
     // running when the user switches apps or turns the screen off.
-    unawaited(_backgroundImport('start'));
+    // Request notification access before starting the foreground service, then
+    // wait until it is running before doing network work. This is important on
+    // Samsung/Android builds that aggressively pause background apps.
+    try {
+      await _platform.invokeMethod<void>('requestNotifications');
+    } catch (_) {}
+    await _backgroundImport('start');
 
     // Key results by their CSV position so retry results remain ordered.
     final foundByIndex = <int, Map>{};
@@ -284,8 +291,11 @@ class _ImportSpotifyPlaylistPageState extends State<ImportSpotifyPlaylistPage> {
   }) async {
     final found = <int, Map>{};
     final missing = <_ImportRow>[];
-    for (var i = 0; i < rows.length; i += _batchSize) {
-      final batch = rows.skip(i).take(_batchSize).toList();
+    var i = 0;
+    var batchSize = _fastBatchSize;
+    var healthyBatches = 0;
+    while (i < rows.length) {
+      final batch = rows.skip(i).take(batchSize).toList();
       final batchResults = await Future.wait(
         batch.map((row) async {
           final (match, wasRateLimited) = await _findSongWithRetry(
@@ -306,9 +316,18 @@ class _ImportSpotifyPlaylistPageState extends State<ImportSpotifyPlaylistPage> {
         }
       }
       onProgress(batchResults.length);
+      i += batch.length;
       if (batchRateLimited) {
+        // Recover at a low request rate, then gradually return to fast mode.
+        batchSize = _slowBatchSize;
+        healthyBatches = 0;
         await Future.delayed(_rateLimitPause);
       } else {
+        healthyBatches++;
+        if (healthyBatches >= 3 && batchSize < _fastBatchSize) {
+          batchSize++;
+          healthyBatches = 0;
+        }
         await Future.delayed(_batchPause);
       }
     }
@@ -323,7 +342,7 @@ class _ImportSpotifyPlaylistPageState extends State<ImportSpotifyPlaylistPage> {
     String? expectedArtist,
     String? expectedTitle,
   }) async {
-    const maxAttempts = 4;
+    const maxAttempts = 3;
     for (var attempt = 0; attempt < maxAttempts; attempt++) {
       try {
         final video = await ytMusicClient.music.searchSong(
@@ -337,7 +356,7 @@ class _ImportSpotifyPlaylistPageState extends State<ImportSpotifyPlaylistPage> {
         // Back off progressively. This makes importing a thousand-song CSV
         // reliable instead of terminating it after one short burst.
         if (attempt == maxAttempts - 1) return (null, true);
-        await Future.delayed(Duration(seconds: 2 << attempt));
+        await Future.delayed(Duration(seconds: 1 << attempt));
       } catch (e, stackTrace) {
         if (attempt == maxAttempts - 1) {
           logger.log(

@@ -9,10 +9,12 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
+import android.os.PowerManager
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 
 class SpotifyImportService : Service() {
+  private var wakeLock: PowerManager.WakeLock? = null
   companion object {
     private const val channelId = "zonic_spotify_import"
     private const val notificationId = 8421
@@ -50,6 +52,13 @@ class SpotifyImportService : Service() {
     }
     val processed = intent?.getIntExtra("processed", 0) ?: 0
     val total = intent?.getIntExtra("total", 0) ?: 0
+    if (wakeLock?.isHeld != true) {
+      wakeLock = (getSystemService(POWER_SERVICE) as PowerManager)
+        .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Zonic:SpotifyImport")
+        // A foreground import can take a while; this prevents screen-off from
+        // stalling it while still giving Android a bounded safety limit.
+        .also { it.acquire(2 * 60 * 60 * 1000L) }
+    }
     val notification = notification(processed, total)
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
       startForeground(notificationId, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
@@ -60,6 +69,12 @@ class SpotifyImportService : Service() {
   }
 
   override fun onBind(intent: Intent?): IBinder? = null
+
+  override fun onDestroy() {
+    wakeLock?.takeIf { it.isHeld }?.release()
+    wakeLock = null
+    super.onDestroy()
+  }
 
   private fun notification(processed: Int, total: Int): Notification {
     val manager = getSystemService(NotificationManager::class.java)
