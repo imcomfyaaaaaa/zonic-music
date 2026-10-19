@@ -60,6 +60,7 @@ class MusifyAudioHandler extends BaseAudioHandler implements AndroidAutoHost {
 
     _androidAutoBrowser = AndroidAutoBrowser(this);
     _setupEventSubscriptions();
+    _restoreLastSong();
     _androidAutoBrowser.setupMediaBrowserSubscriptions();
     _updatePlaybackState();
 
@@ -101,6 +102,38 @@ class MusifyAudioHandler extends BaseAudioHandler implements AndroidAutoHost {
   int _currentQueueIndex = 0;
   int _currentLoadingIndex = -1;
   int _currentLoadingTransitionId = -1;
+  static const _lastSongKey = 'zonicLastSong';
+  int _resumePositionMs = 0;
+
+  void _restoreLastSong() {
+    final saved = Hive.box('userNoBackup').get(_lastSongKey);
+    final song = saved is Map ? saved['song'] : null;
+    final candidate = song is Map
+        ? song
+        : _firstPlayableSong(userRecentlyPlayed.value);
+    if (candidate == null || candidate['isLive'] == true) return;
+    final normalised = normaliseResumableSong(candidate);
+    if (normalised == null) return;
+    _queueList.add(_queueEntryIds.createSong(normalised));
+    _resumePositionMs = saved is Map && song is Map
+        ? ((saved['positionMs'] as num?)?.toInt() ?? 0).clamp(0, 86400000)
+        : 0;
+    _updateQueueMediaItems();
+  }
+
+  void _saveLastSong({int? positionMs}) {
+    final song = currentSong;
+    if (song == null || song['isLive'] == true || songYtid(song) == null) {
+      return;
+    }
+    final position = positionMs ?? audioPlayer.position.inMilliseconds;
+    unawaited(
+      Hive.box('userNoBackup').put(_lastSongKey, {
+        'song': normaliseResumableSong(song),
+        'positionMs': position.clamp(0, 86400000),
+      }),
+    );
+  }
 
   // Playback transition and state-update coordination.
   bool _isUpdatingState = false;
@@ -181,6 +214,8 @@ class MusifyAudioHandler extends BaseAudioHandler implements AndroidAutoHost {
   int get currentQueueIndex => _currentQueueIndex;
   Future<void> clearGroveQueue() async {
     await stop();
+    await Hive.box('userNoBackup').delete(_lastSongKey);
+    _resumePositionMs = 0;
     _queueList.clear();
     _originalQueueList.clear();
     _originalQueueEntriesById.clear();
@@ -235,6 +270,13 @@ class MusifyAudioHandler extends BaseAudioHandler implements AndroidAutoHost {
   }
 
   void _setupEventSubscriptions() {
+    audioPlayer.positionStream.throttleTime(const Duration(seconds: 10)).listen(
+      (position) {
+        if (audioPlayer.playing) {
+          _saveLastSong(positionMs: position.inMilliseconds);
+        }
+      },
+    );
     audioPlayer.playbackEventStream
         .throttleTime(const Duration(milliseconds: 100))
         .listen(
@@ -1537,6 +1579,8 @@ class MusifyAudioHandler extends BaseAudioHandler implements AndroidAutoHost {
       if (currentTransitionId == _currentLoadingTransitionId) {
         if (success) {
           _consecutiveErrors = 0;
+          _resumePositionMs = 0;
+          _saveLastSong(positionMs: 0);
           _preloadUpcomingSongs();
           if (smartShuffleNotifier.value) {
             unawaited(_maybeQueueSmartShuffleSong());
@@ -1837,7 +1881,11 @@ class MusifyAudioHandler extends BaseAudioHandler implements AndroidAutoHost {
       if (audioPlayer.audioSource == null) {
         final recentSong = latestResumableSong();
         if (recentSong != null) {
+          final resumePosition = _resumePositionMs;
           await playResumableSong(recentSong);
+          if (resumePosition > 0 && audioPlayer.audioSource != null) {
+            await seek(Duration(milliseconds: resumePosition));
+          }
           return;
         }
       }
@@ -1869,6 +1917,7 @@ class MusifyAudioHandler extends BaseAudioHandler implements AndroidAutoHost {
       );
       unawaited(listeningStatsService.flush());
       await audioPlayer.pause();
+      _saveLastSong();
     } catch (e, stackTrace) {
       logger.log('Error in pause()', error: e, stackTrace: stackTrace);
     }
@@ -1919,6 +1968,7 @@ class MusifyAudioHandler extends BaseAudioHandler implements AndroidAutoHost {
         wasPlaying: audioPlayer.playing,
       );
       await audioPlayer.seek(position);
+      _saveLastSong(positionMs: position.inMilliseconds);
       unawaited(listeningStatsService.flush());
     } catch (e, stackTrace) {
       logger.log('Error in seek()', error: e, stackTrace: stackTrace);

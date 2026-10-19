@@ -39,6 +39,7 @@ class _ZonicPhoneAppState extends State<ZonicPhoneApp> {
   final _navigatorKey = GlobalKey<NavigatorState>();
   int index = 0;
   bool _checkedForUpdate = false;
+  bool _fullPlayerOpen = false;
   StreamSubscription<Uri?>? _dropboxLinks;
 
   @override
@@ -83,10 +84,12 @@ class _ZonicPhoneAppState extends State<ZonicPhoneApp> {
     setState(() => index = value);
   }
 
-  void _openPlayer() {
-    _navigatorKey.currentState?.push(
+  void _openPlayer() async {
+    setState(() => _fullPlayerOpen = true);
+    await _navigatorKey.currentState?.push(
       MaterialPageRoute<void>(builder: (_) => const _FullPlayer()),
     );
+    if (mounted) setState(() => _fullPlayerOpen = false);
   }
 
   @override
@@ -145,10 +148,11 @@ class _ZonicPhoneAppState extends State<ZonicPhoneApp> {
       child: Column(
         children: [
           Expanded(child: child ?? const SizedBox.shrink()),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(8, 0, 8, 4),
-            child: ZonicMiniPlayer(onExpand: _openPlayer),
-          ),
+          if (!_fullPlayerOpen)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 0, 8, 4),
+              child: ZonicMiniPlayer(onExpand: _openPlayer),
+            ),
           SafeArea(
             top: false,
             child: ZonicPhoneNavigation(index: index, onChanged: _selectTab),
@@ -1855,14 +1859,17 @@ class _FullPlayer extends StatelessWidget {
         ),
         body: SafeArea(
           child: Padding(
-            padding: const EdgeInsets.all(28),
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
             child: ListView(
               physics: const BouncingScrollPhysics(),
               children: [
-                const SizedBox(height: 16),
+                const SizedBox(height: 8),
                 LayoutBuilder(
                   builder: (_, constraints) {
-                    final size = constraints.maxWidth.clamp(220.0, 380.0);
+                    final screenHeight = MediaQuery.sizeOf(context).height;
+                    final size = constraints.maxWidth
+                        .clamp(180.0, 380.0)
+                        .clamp(180.0, screenHeight * 0.28);
                     return ZonicArtwork(
                       url: zonicArtworkUrl(song),
                       size: size,
@@ -1870,7 +1877,7 @@ class _FullPlayer extends StatelessWidget {
                     );
                   },
                 ),
-                const SizedBox(height: 30),
+                const SizedBox(height: 16),
                 Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
