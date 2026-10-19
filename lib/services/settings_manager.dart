@@ -110,6 +110,10 @@ final shuffleNotifier = ValueNotifier<bool>(
   Hive.box('settings').get('shuffleEnabled', defaultValue: false),
 );
 
+final smartShuffleNotifier = ValueNotifier<bool>(
+  Hive.box('settings').get('smartShuffleEnabled', defaultValue: false),
+);
+
 final repeatNotifier = ValueNotifier<AudioServiceRepeatMode>(
   AudioServiceRepeatMode.values[Hive.box('settings')
       .get('repeatMode', defaultValue: 0)],
@@ -197,6 +201,11 @@ void reloadSettingsFromStorage() {
   }
 
   shuffleNotifier.value = settings.get('shuffleEnabled', defaultValue: false);
+  smartShuffleNotifier.value = settings.get(
+    'smartShuffleEnabled',
+    defaultValue: false,
+  );
+  if (smartShuffleNotifier.value) shuffleNotifier.value = true;
   final restoredRepeatIndex = settings.get('repeatMode', defaultValue: 0);
   if (restoredRepeatIndex is int &&
       restoredRepeatIndex >= 0 &&

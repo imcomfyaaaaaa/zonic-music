@@ -38,6 +38,7 @@ import 'package:musify/utilities/map_utils.dart';
 import 'package:musify/utilities/media_duration.dart';
 import 'package:musify/utilities/mediaitem.dart';
 import 'package:musify/utilities/queue_entry_utils.dart';
+import 'package:musify/utilities/smart_shuffle.dart';
 import 'package:rxdart/rxdart.dart';
 
 class MusifyAudioHandler extends BaseAudioHandler implements AndroidAutoHost {
@@ -88,6 +89,15 @@ class MusifyAudioHandler extends BaseAudioHandler implements AndroidAutoHost {
   final BehaviorSubject<List<Map>> _queueMapStream =
       BehaviorSubject<List<Map>>.seeded([]);
   final QueueEntryIdManager _queueEntryIds = QueueEntryIdManager();
+  Future<void>? _smartShuffleTask;
+  int _smartShuffleEpoch = 0;
+  int _smartShuffleDayKey = 0;
+  int _smartShuffleRotation = 0;
+  final Set<String> _smartShuffleSessionExcluded = {};
+  final Set<String> _smartShuffleBlockedIds = List<String>.from(
+    Hive.box('settings')
+        .get('smartShuffleBlockedIds', defaultValue: <String>[]),
+  ).toSet();
   int _currentQueueIndex = 0;
   int _currentLoadingIndex = -1;
   int _currentLoadingTransitionId = -1;
@@ -883,6 +893,7 @@ class MusifyAudioHandler extends BaseAudioHandler implements AndroidAutoHost {
   Future<void> _backgroundAddSongsToQueue() async {
     // Repeat modes keep the queue cycling, so extending it would corrupt it.
     if (offlineMode.value ||
+        smartShuffleNotifier.value ||
         currentSong?['isLive'] == true ||
         hasNext ||
         repeatNotifier.value != AudioServiceRepeatMode.none) {
@@ -922,6 +933,116 @@ class MusifyAudioHandler extends BaseAudioHandler implements AndroidAutoHost {
       logger.log(
         'Error in background song addition',
         error: e,
+        stackTrace: stackTrace,
+      );
+    }
+  }
+
+  Future<void> _maybeQueueSmartShuffleSong() async {
+    _refreshSmartShuffleDay();
+    final pending = _smartShuffleTask;
+    if (pending != null) return pending;
+    if (!smartShuffleNotifier.value ||
+        offlineMode.value ||
+        currentSong?['isLive'] == true ||
+        !_hasCurrentQueueIndex ||
+        smartShuffleInsertIndex(_queueList, _currentQueueIndex) == null) {
+      return;
+    }
+
+    final task = _fetchSmartShuffleSong();
+    _smartShuffleTask = task;
+    try {
+      await task;
+    } finally {
+      if (identical(_smartShuffleTask, task)) _smartShuffleTask = null;
+    }
+  }
+
+  void _refreshSmartShuffleDay() {
+    final now = DateTime.now();
+    final today = now.year * 10000 + now.month * 100 + now.day;
+    if (_smartShuffleDayKey == today) return;
+    if (_smartShuffleDayKey != 0) {
+      final previousPicks = <String>{};
+      var removed = false;
+      for (
+        var index = _queueList.length - 1;
+        index > _currentQueueIndex;
+        index--
+      ) {
+        final song = _queueList[index];
+        if (song['isSmartShuffle'] == true) {
+          final id = song['ytid']?.toString();
+          if (id != null) previousPicks.add(id);
+          _queueList.removeAt(index);
+          removed = true;
+        }
+      }
+      _smartShuffleSessionExcluded.addAll(previousPicks);
+      _smartShuffleRotation = 0;
+      _smartShuffleEpoch++;
+      _smartShuffleTask = null;
+      if (removed) _updateQueueMediaItems();
+    }
+    _smartShuffleDayKey = today;
+  }
+
+  Future<void> _fetchSmartShuffleSong() async {
+    final currentId = currentSong?['ytid']?.toString();
+    if (currentId == null || currentId.isEmpty) return;
+    final epoch = _smartShuffleEpoch;
+    final knownIds = <String>{
+      for (final song in [..._queueList, ..._historyList])
+        if (song['ytid'] != null) song['ytid'].toString(),
+      ..._smartShuffleSessionExcluded,
+      ..._smartShuffleBlockedIds,
+      for (final song in userLikedSongsList.value.whereType<Map>())
+        if (song['ytid'] != null) song['ytid'].toString(),
+    };
+    try {
+      Map<String, dynamic>? recommended;
+      final seeds = smartShuffleSeedIds(
+        currentId: currentId,
+        recentSongs: userRecentlyPlayed.value,
+        likedSongs: userLikedSongsList.value,
+        dayKey: _smartShuffleDayKey,
+        rotation: _smartShuffleRotation,
+      );
+      for (final seed in seeds.take(3)) {
+        recommended = await getSimilarSong(
+          seed,
+          excludedYtIds: knownIds,
+        ).timeout(const Duration(seconds: 8));
+        if (recommended != null) break;
+      }
+      if (!smartShuffleNotifier.value ||
+          epoch != _smartShuffleEpoch ||
+          currentSong?['ytid']?.toString() != currentId ||
+          recommended == null) {
+        return;
+      }
+      final insertIndex = smartShuffleInsertIndex(
+        _queueList,
+        _currentQueueIndex,
+      );
+      final candidateId = recommended['ytid']?.toString();
+      if (insertIndex == null ||
+          candidateId == null ||
+          candidateId.isEmpty ||
+          _queueList.any((song) => song['ytid']?.toString() == candidateId)) {
+        return;
+      }
+      await _insertSongToQueueInternal(
+        {...recommended, 'isAutoPicked': true},
+        insertIndex,
+        flagName: 'isSmartShuffle',
+      );
+      _smartShuffleSessionExcluded.add(candidateId);
+    } catch (error, stackTrace) {
+      logger.log(
+        'Could not find a Smart Shuffle song',
+        error: error,
         stackTrace: stackTrace,
       );
     }
@@ -1077,6 +1198,11 @@ class MusifyAudioHandler extends BaseAudioHandler implements AndroidAutoHost {
       final manuallyAddedSongs = replace ? _getUnplayedManualSongs() : <Map>[];
       final shuffleAfterReplace = shuffle ?? shuffleNotifier.value;
       if (replace) {
+        if (!shuffleAfterReplace && smartShuffleNotifier.value) {
+          await setSmartShuffleMode(false);
+        }
+        _smartShuffleEpoch++;
+        _smartShuffleTask = null;
         _queueList.clear();
         _originalQueueList.clear();
         _originalQueueEntriesById.clear();
@@ -1412,6 +1538,9 @@ class MusifyAudioHandler extends BaseAudioHandler implements AndroidAutoHost {
         if (success) {
           _consecutiveErrors = 0;
           _preloadUpcomingSongs();
+          if (smartShuffleNotifier.value) {
+            unawaited(_maybeQueueSmartShuffleSong());
+          }
           // Trigger background song addition if auto-play is enabled
           if (playNextSongAutomatically.value) {
             unawaited(_backgroundAddSongsToQueue());
@@ -2274,6 +2403,8 @@ class MusifyAudioHandler extends BaseAudioHandler implements AndroidAutoHost {
         ..clear()
         ..add(cloneMap(queueSong));
       _historyList.clear();
+      _smartShuffleEpoch++;
+      _smartShuffleTask = null;
       _currentQueueIndex = 0;
       _currentLoadingIndex = -1;
       _currentLoadingTransitionId = -1;
@@ -2448,6 +2579,9 @@ class MusifyAudioHandler extends BaseAudioHandler implements AndroidAutoHost {
   Future<void> skipToNext() async {
     try {
       if (currentSong?['isLive'] == true) return;
+      if (smartShuffleNotifier.value && !hasNext) {
+        await _maybeQueueSmartShuffleSong();
+      }
       if (_currentQueueIndex < _queueList.length - 1) {
         await _playFromQueue(_currentQueueIndex + 1);
       } else if (repeatNotifier.value == AudioServiceRepeatMode.all &&
@@ -2610,6 +2744,10 @@ class MusifyAudioHandler extends BaseAudioHandler implements AndroidAutoHost {
       final shuffleEnabled = shuffleMode != AudioServiceShuffleMode.none;
       final wasShuffled = shuffleNotifier.value;
 
+      if (!shuffleEnabled && smartShuffleNotifier.value) {
+        await setSmartShuffleMode(false);
+      }
+
       shuffleNotifier.value = shuffleEnabled;
       unawaited(Hive.box('settings').put('shuffleEnabled', shuffleEnabled));
       await audioPlayer.setShuffleModeEnabled(shuffleEnabled);
@@ -2635,6 +2773,64 @@ class MusifyAudioHandler extends BaseAudioHandler implements AndroidAutoHost {
         error: e,
         stackTrace: stackTrace,
       );
+    }
+  }
+
+  Future<void> setSmartShuffleMode(bool enabled) async {
+    if (enabled && currentSong?['isLive'] == true) return;
+    if (enabled && !shuffleNotifier.value) {
+      await setShuffleMode(AudioServiceShuffleMode.all);
+    }
+    if (smartShuffleNotifier.value == enabled) return;
+    smartShuffleNotifier.value = enabled;
+    _smartShuffleEpoch++;
+    _smartShuffleTask = null;
+    unawaited(Hive.box('settings').put('smartShuffleEnabled', enabled));
+    if (enabled) {
+      unawaited(_maybeQueueSmartShuffleSong());
+    } else {
+      _smartShuffleRotation++;
+      var removed = false;
+      for (
+        var index = _queueList.length - 1;
+        index > _currentQueueIndex;
+        index--
+      ) {
+        if (_queueList[index]['isSmartShuffle'] == true) {
+          _queueList.removeAt(index);
+          removed = true;
+        }
+      }
+      if (removed) _updateQueueMediaItems();
+    }
+  }
+
+  Future<void> rejectSmartShuffleSong(String songId) async {
+    if (songId.isEmpty) return;
+    _smartShuffleBlockedIds.add(songId);
+    _smartShuffleSessionExcluded.add(songId);
+    await Hive.box('settings')
+        .put('smartShuffleBlockedIds', _smartShuffleBlockedIds.toList());
+    final isCurrentPick =
+        currentSong?['ytid']?.toString() == songId &&
+        currentSong?['isSmartShuffle'] == true;
+    var removed = false;
+    for (
+      var index = _queueList.length - 1;
+      index > _currentQueueIndex;
+      index--
+    ) {
+      if (_queueList[index]['ytid']?.toString() == songId &&
+          _queueList[index]['isSmartShuffle'] == true) {
+        _queueList.removeAt(index);
+        removed = true;
+      }
+    }
+    if (removed) _updateQueueMediaItems();
+    if (isCurrentPick) {
+      await skipToNext();
+    } else if (removed && smartShuffleNotifier.value) {
+      unawaited(_maybeQueueSmartShuffleSong());
     }
   }
 

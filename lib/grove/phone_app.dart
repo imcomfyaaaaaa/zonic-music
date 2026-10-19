@@ -1337,14 +1337,34 @@ class _NativePlaylistPageState extends State<_NativePlaylistPage> {
                             OutlinedButton.icon(
                               onPressed: songs.isEmpty
                                   ? null
-                                  : () =>
-                                        musify.audioHandler.addPlaylistToQueue(
-                                          songs,
-                                          replace: true,
-                                          shuffle: true,
-                                        ),
+                                  : () async {
+                                      await musify.audioHandler
+                                          .setSmartShuffleMode(false);
+                                      await musify.audioHandler
+                                          .addPlaylistToQueue(
+                                            songs,
+                                            replace: true,
+                                            shuffle: true,
+                                          );
+                                    },
                               icon: const Icon(Icons.shuffle_rounded),
                               label: const Text('Shuffle'),
+                            ),
+                            OutlinedButton.icon(
+                              onPressed: songs.isEmpty
+                                  ? null
+                                  : () async {
+                                      await musify.audioHandler
+                                          .addPlaylistToQueue(
+                                            songs,
+                                            replace: true,
+                                            shuffle: true,
+                                          );
+                                      await musify.audioHandler
+                                          .setSmartShuffleMode(true);
+                                    },
+                              icon: const Icon(Icons.auto_awesome_rounded),
+                              label: const Text('Smart Shuffle'),
                             ),
                             _PlaylistDownloadButton(
                               playlist: playlist,
@@ -1642,16 +1662,41 @@ class _NativeCollectionPageState extends State<_NativeCollectionPage> {
                         child: OutlinedButton.icon(
                           onPressed: allSongs.isEmpty
                               ? null
-                              : () => musify.audioHandler.addPlaylistToQueue(
-                                  allSongs,
-                                  replace: true,
-                                  shuffle: true,
-                                ),
+                              : () async {
+                                  await musify.audioHandler.setSmartShuffleMode(
+                                    false,
+                                  );
+                                  await musify.audioHandler.addPlaylistToQueue(
+                                    allSongs,
+                                    replace: true,
+                                    shuffle: true,
+                                  );
+                                },
                           icon: const Icon(Icons.shuffle_rounded),
                           label: const Text('Shuffle'),
                         ),
                       ),
                     ],
+                  ),
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: allSongs.isEmpty
+                          ? null
+                          : () async {
+                              await musify.audioHandler.addPlaylistToQueue(
+                                allSongs,
+                                replace: true,
+                                shuffle: true,
+                              );
+                              await musify.audioHandler.setSmartShuffleMode(
+                                true,
+                              );
+                            },
+                      icon: const Icon(Icons.auto_awesome_rounded),
+                      label: const Text('Smart Shuffle'),
+                    ),
                   ),
                   if (widget.kind == _CollectionKind.liked) ...[
                     const SizedBox(height: 10),
@@ -1846,6 +1891,14 @@ class _FullPlayer extends StatelessWidget {
                     style: const TextStyle(fontSize: 17, color: zonicMuted),
                   ),
                 ),
+                if (song?['isSmartShuffle'] == true)
+                  const Align(
+                    alignment: Alignment.centerLeft,
+                    child: Chip(
+                      avatar: Icon(Icons.auto_awesome_rounded, size: 16),
+                      label: Text('Smart Shuffle pick'),
+                    ),
+                  ),
                 const SizedBox(height: 18),
                 if (isRadio)
                   const Center(
@@ -1883,15 +1936,41 @@ class _FullPlayer extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
                     if (!isRadio)
-                      IconButton(
-                        tooltip: 'Shuffle',
-                        color: shuffleNotifier.value ? zonicAccent : null,
-                        onPressed: () => musify.audioHandler.setShuffleMode(
-                          shuffleNotifier.value
-                              ? AudioServiceShuffleMode.none
-                              : AudioServiceShuffleMode.all,
-                        ),
-                        icon: const Icon(Icons.shuffle_rounded),
+                      ValueListenableBuilder<bool>(
+                        valueListenable: smartShuffleNotifier,
+                        builder: (context, smart, _) =>
+                            ValueListenableBuilder<bool>(
+                              valueListenable: shuffleNotifier,
+                              builder: (context, shuffled, _) => IconButton(
+                                tooltip: smart
+                                    ? 'Smart Shuffle on — tap to turn off'
+                                    : shuffled
+                                    ? 'Shuffle on — tap for Smart Shuffle'
+                                    : 'Shuffle off — tap to shuffle',
+                                color: smart || shuffled ? zonicAccent : null,
+                                onPressed: () async {
+                                  if (smart) {
+                                    await musify.audioHandler
+                                        .setSmartShuffleMode(false);
+                                    await musify.audioHandler.setShuffleMode(
+                                      AudioServiceShuffleMode.none,
+                                    );
+                                  } else if (shuffled) {
+                                    await musify.audioHandler
+                                        .setSmartShuffleMode(true);
+                                  } else {
+                                    await musify.audioHandler.setShuffleMode(
+                                      AudioServiceShuffleMode.all,
+                                    );
+                                  }
+                                },
+                                icon: Icon(
+                                  smart
+                                      ? Icons.auto_awesome_rounded
+                                      : Icons.shuffle_rounded,
+                                ),
+                              ),
+                            ),
                       ),
                     if (!isRadio)
                       IconButton(
@@ -1953,6 +2032,25 @@ class _FullPlayer extends StatelessWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
+                      if (song?['isSmartShuffle'] == true)
+                        IconButton(
+                          tooltip: "Don't recommend this song again",
+                          onPressed: () async {
+                            await musify.audioHandler.rejectSmartShuffleSong(
+                              song!['ytid'].toString(),
+                            );
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'This song will not be recommended again.',
+                                  ),
+                                ),
+                              );
+                            }
+                          },
+                          icon: const Icon(Icons.remove_circle_outline_rounded),
+                        ),
                       IconButton(
                         tooltip: 'Like',
                         onPressed: song == null
@@ -2067,7 +2165,9 @@ class _SongTile extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
               ),
               subtitle: Text(
-                song['artist']?.toString() ?? 'Unknown artist',
+                song['isSmartShuffle'] == true
+                    ? '✦ Suggested for you · ${song['artist'] ?? 'Unknown artist'}'
+                    : song['artist']?.toString() ?? 'Unknown artist',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(color: zonicMuted),
@@ -2091,6 +2191,25 @@ class _SongTile extends StatelessWidget {
                         Icons.download_done_rounded,
                         color: Color(0xff9ff0bd),
                       ),
+                    ),
+                  if (song['isSmartShuffle'] == true)
+                    IconButton(
+                      tooltip: "Don't recommend this song again",
+                      onPressed: () async {
+                        await musify.audioHandler.rejectSmartShuffleSong(
+                          songId ?? '',
+                        );
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'This song will not be recommended again.',
+                              ),
+                            ),
+                          );
+                        }
+                      },
+                      icon: const Icon(Icons.remove_circle_outline_rounded),
                     ),
                   IconButton(
                     tooltip: 'Song options',
@@ -2798,21 +2917,27 @@ void _showQueue(BuildContext context) {
     context: context,
     backgroundColor: const Color(0xff17161b),
     showDragHandle: true,
-    builder: (_) => ListView(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 30),
-      children: [
-        const Text(
-          'Up next',
-          style: TextStyle(fontSize: 25, fontWeight: FontWeight.w800),
-        ),
-        const SizedBox(height: 12),
-        ...musify.audioHandler.browserQueue.asMap().entries.map(
-          (entry) => _SongTile(
-            song: entry.value,
-            onTap: () => musify.audioHandler.skipToQueueItem(entry.key),
+    builder: (_) => StreamBuilder<List<Map>>(
+      stream: musify.audioHandler.queueAsMapStream,
+      builder: (context, snapshot) => ListView(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 30),
+        children: [
+          const Text(
+            'Up next',
+            style: TextStyle(fontSize: 25, fontWeight: FontWeight.w800),
           ),
-        ),
-      ],
+          const SizedBox(height: 12),
+          ...(snapshot.data ?? musify.audioHandler.browserQueue)
+              .asMap()
+              .entries
+              .map(
+                (entry) => _SongTile(
+                  song: entry.value,
+                  onTap: () => musify.audioHandler.skipToQueueItem(entry.key),
+                ),
+              ),
+        ],
+      ),
     ),
   );
 }
